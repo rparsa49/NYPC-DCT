@@ -21,10 +21,21 @@ def filter_circles(circles):
     filtered_circles = []
     for circle in circles[0]:
         x, y, radius = circle
-        if y < 359:  
+        if y < 359:
             filtered_circles.append(circle)
     return np.array([filtered_circles], dtype=np.uint16)
 
+# Function to calculate the HU for each circle
+def calculate_hu(image, circles, slope, intercept):
+    hu_values = []
+    for circle in circles[0]:
+        x, y, radius = circle
+        mask = np.zeros(image.shape, dtype=np.uint8)
+        cv2.circle(mask, (x, y), radius, 1, thickness=-1)
+        pixel_values = image[mask == 1]
+        hu = pixel_values * slope + intercept
+        hu_values.append(np.mean(hu))
+    return hu_values
 
 # Path to the initial DICOM file
 initial_dicom_path = '/Users/royaparsa/NYPC-DCT/images/Emptyphantoms/Gammexbody/CT.1.3.12.2.1107.5.1.4.83775.30000024050721561583000000063.dcm'
@@ -91,8 +102,18 @@ for i in saved_circles[0, :]:
     # Draw the center of the circle
     cv2.circle(new_contour_image, (i[0], i[1]), 2, (0, 255, 0), 3)
 
+# Get rescale slope and intercept
+slope = new_dicom_data.RescaleSlope
+intercept = new_dicom_data.RescaleIntercept
+
+# Calculate HU values for the identified circles
+hu_values = calculate_hu(new_image, saved_circles, slope, intercept)
+for idx, hu in enumerate(hu_values):
+    print(f"Circle {idx + 1}: HU = {hu:.2f}")
+
 # Display the result
 plt.imshow(new_contour_image)
 plt.title('Mapped Areas of Interest On New Image')
 plt.axis('off')
 plt.show()
+
