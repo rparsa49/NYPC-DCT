@@ -25,17 +25,15 @@ def filter_circles(circles):
             filtered_circles.append(circle)
     return np.array([filtered_circles], dtype=np.uint16)
 
-# Function to calculate the HU for each circle
-def calculate_hu(image, circles, slope, intercept):
-    hu_values = []
-    for circle in circles[0]:
-        x, y, radius = circle
-        mask = np.zeros(image.shape, dtype=np.uint8)
-        cv2.circle(mask, (x, y), radius, 1, thickness=-1)
-        pixel_values = image[mask == 1]
-        hu = pixel_values * slope + intercept
-        hu_values.append(np.mean(hu))
-    return hu_values
+# Function to calculate the mean pixel value for a circle
+def calculate_mean_pixel_value(image, circle):
+    x, y, radius = circle
+    mask = np.zeros(image.shape, dtype=np.uint8)
+    cv2.circle(mask, (x, y), radius, 1, thickness=-1)
+    pixel_values = image[mask == 1]
+    mean_value = np.mean(pixel_values)
+    return mean_value
+
 
 # Path to the initial DICOM file
 initial_dicom_path = '/Users/royaparsa/NYPC-DCT/images/Emptyphantoms/Gammexbody/CT.1.3.12.2.1107.5.1.4.83775.30000024050721561583000000063.dcm'
@@ -96,24 +94,29 @@ saved_circles = load_circles_data(circles_data_path)
 
 # Draw saved circles on the new DICOM image
 new_contour_image = cv2.cvtColor(new_image_8bit, cv2.COLOR_GRAY2BGR)
-for i in saved_circles[0, :]:
+mean_pixel_values = []
+radii_ratios = [0.3, 0.6, 0.9]  # consistent radii ratios for all inserts
+
+for circle in saved_circles[0, :]:
+    x, y, radius = circle
     # Draw the outer circle
-    cv2.circle(new_contour_image, (i[0], i[1]), i[2], (255, 0, 0), 2)
+    cv2.circle(new_contour_image, (x, y), radius, (255, 0, 0), 2)
     # Draw the center of the circle
-    cv2.circle(new_contour_image, (i[0], i[1]), 2, (0, 255, 0), 3)
+    cv2.circle(new_contour_image, (x, y), 2, (0, 255, 0), 3)
 
-# Get rescale slope and intercept
-slope = new_dicom_data.RescaleSlope
-intercept = new_dicom_data.RescaleIntercept
+    # Draw and compute mean value for three smaller circles with consistent radii
+    for ratio in radii_ratios:
+        new_radius = int(radius * ratio)
+        mean_value = calculate_mean_pixel_value(new_image, (x, y, new_radius))
+        mean_pixel_values.append(mean_value)
+        cv2.circle(new_contour_image, (x, y), new_radius, (0, 255, 255), 2)
 
-# Calculate HU values for the identified circles
-hu_values = calculate_hu(new_image, saved_circles, slope, intercept)
-for idx, hu in enumerate(hu_values):
-    print(f"Circle {idx + 1}: HU = {hu:.2f}")
+# Display mean pixel values for each circle
+for idx, mean_value in enumerate(mean_pixel_values):
+    print(f"Circle {idx + 1}: Mean Pixel Value = {mean_value:.2f}")
 
 # Display the result
 plt.imshow(new_contour_image)
 plt.title('Mapped Areas of Interest On New Image')
 plt.axis('off')
 plt.show()
-
