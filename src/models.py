@@ -41,3 +41,21 @@ def rho_e_truth(rho_m, w_m, rho_w, w_w, Z, A):
     for ele_i in range(0, len(w_w)):
         n_w = n_w + w_w[ele_i] * Z[ele_i] / A[ele_i]
     return rho_m * n_m / (rho_w * n_w)
+
+def ln_i_truth(w_m, Z, A, I):
+    """
+    The ln of mean excitation potential (truth).
+    Arguments:
+        w_m: weight fraction of elements for material
+        Z: atomic number of elements
+        A: atomic weight of elements
+        I: ionization energy of elements
+    """
+
+    numerator = 0
+    denominator = 0
+    for ele_i in range(0, len(w_m)):
+        numerator = numerator + w_m[ele_i] * \
+            Z[ele_i] / A[ele_i] * math.log(I[ele_i])
+        denominator = denominator + w_m[ele_i] * Z[ele_i] / A[ele_i]
+    return numerator / denominator
