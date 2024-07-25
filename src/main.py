@@ -1,3 +1,5 @@
+import os
+# import boto3
 import matplotlib.pyplot as plt
 import numpy as np
 from dect_processing import *
@@ -6,7 +8,7 @@ import scipy.optimize as sp
 
 # Paths to DICOM files and circles data
 initial_dicom_path = '/Users/royaparsa/NYPC-DCT/images/Emptyphantoms/Gammexbody/CT.1.3.12.2.1107.5.1.4.83775.30000024050721561583000000063.dcm'
-new_dicom_path = '/Users/royaparsa/NYPC-DCT/images/Emptyphantoms/3Dprinted/CT.1.3.12.2.1107.5.1.4.83775.30000024050721561583000000259.dcm'
+new_dicom_path = 'images/CT1.3.12.2.1107.5.1.4.83775.30000024051312040257200012307.dcm'
 circles_data_path = 'circles_data.json'
 
 # Load and process initial DICOM image
@@ -24,9 +26,12 @@ saved_circles = load_circles_data(circles_data_path)
 # Define radii ratios
 radii_ratios = [0.3, 0.6, 0.9]
 
-# Draw circles and calculate hu values from mean pixel area in each circle
+# Draw circles and calculate HU values from mean pixel area in each circle
 contour_image, mean_hu_values = draw_and_calculate_circles(
     new_image, saved_circles, radii_ratios)
+
+# Display the result
+display_image(contour_image, title='Mapped Areas of Interest On New Image')
 
 # Extract hu_low, hu_mid, hu_high for each insert
 hu_low = mean_hu_values[::3]
@@ -114,6 +119,16 @@ z_eff_meas = [z_eff_model(
     hu_low[i], hu_high[i], rho_e_meas[i], popt_z[0], n) for i in range(len(hu_low))]
 ln_i_meas = [ln_i_fit(z_eff_meas[i]) for i in range(len(hu_low))]
 
+# Bethe equation calculations
+beta2 = beta_proton(140)  # Add calculation of proton kinetic energy
+
+spr_meas = [spr_w_truth(rho_e_meas[i], ln_i_meas[i], ln_i_true, beta2)
+            for i in range(len(hu_low))]
+spr_true = spr_w_truth(rho_e_true, ln_i_true, ln_i_true, beta2)
+
+print(f"Stopping Power Ratio (SPR) for water: {spr_true}")
+print(f"Measured Stopping Power Ratios: {spr_meas}")
+
 # Calculate relative differences
 rho_e_diff = [(rho_e_meas[i] - rho_e_true) / rho_e_true *
               100 for i in range(len(hu_low))]
@@ -121,11 +136,14 @@ z_eff_diff = [(z_eff_meas[i] - z_eff_true) / z_eff_true *
               100 for i in range(len(hu_low))]
 ln_i_diff = [(ln_i_meas[i] - ln_i_true) / ln_i_true *
              100 for i in range(len(hu_low))]
+spr_diff = [(spr_meas[i] - spr_true) / spr_true *
+            100 for i in range(len(hu_low))]
 
 # Create arrays for true values with the same length as measured values
 rho_e_true_arr = np.full(len(hu_low), rho_e_true)
 z_eff_true_arr = np.full(len(hu_low), z_eff_true)
 ln_i_true_arr = np.full(len(hu_low), ln_i_true)
+spr_true_arr = np.full(len(hu_low), spr_true)
 
 # Plotting
 fig, ax = plt.subplots(2, 3, figsize=(18, 12))
@@ -162,8 +180,7 @@ ax[1, 2].plot([min(ln_i_true_arr), max(ln_i_true_arr)], [0, 0], 'r--')
 ax[1, 2].set_ylabel('True ln(I)')
 ax[1, 2].set_xlabel('Relative difference (%)')
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
 
-# Display the result
-# display_image(contour_image, title='Mapped Areas of Interest On New Image')
+
