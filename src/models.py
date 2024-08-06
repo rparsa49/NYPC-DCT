@@ -216,3 +216,52 @@ def sigma_mono_ene(hu_l, hu_h, rho_e, alpha):
         sigma_w_h_i = mu_w_h_i / rho_e[i]
         sigma[i] = alpha * sigma_w_l_i + (1.0 - alpha) * sigma_w_h_i
     return sigma
+
+def rho_e_trujillo(hu_j, omega_j, Z_N, E_ji, E_jiw, Z, Zw, F_func, G_func):
+    """
+    Calculate electron density (rho_e) using the Trujillo-Bastidas method.
+    Arguments:
+        hu_j (float): Hounsfield Unit for X-ray spectrum j
+        omega_j (numpy.ndarray): Weights for energy spectra j
+        Z_N (float): Normalization constant for atomic number
+        E_ji (numpy.ndarray): Energy values for material
+        E_jiw (numpy.ndarray): Energy values for water
+        Z (float): Atomic number for material
+        Zw (float): Atomic number for water
+        F_func (callable): Function to calculate F(E, Z)
+        G_func (callable): Function to calculate G(E, Z)
+    """
+    numerator = np.sum(omega_j * (Z_N**-1 * F_func(E_ji, Z) + G_func(E_ji, Z)))
+    denomintator = np.sum(omega_j * (Z_N**-1 * F_func(E_jiw, Zw) + G_func(E_jiw, Zw)))
+    return (hu_j / 1000 + 1) * (denomintator / numerator)
+
+def z_eff_trujillo(U1w, U2w, omega1, omega2, Z_N, E1i, E2i, Zw, F_func, G_func):
+    """
+    Calculate effective atomic number (Z_Eff) using the Trujillo-Bastidas method.
+    Arguments:
+        U1w (float): Linear attenuation coefficient ratio for X-ray spectrum 1
+        U2w (float): Linear attenuation coefficient ratio for X-ray spectrum 2
+        omega1 (numpy.ndarray): Weights for energy spectra 1
+        omega2 (numpy.ndarray): Weights for energy spectra 2
+        Z_N (float): Normalization constant for atomic number
+        E1i (numpy.ndarray): Energy values for material at spectrum 1
+        E2i (numpy.ndarray): Energy values for material at specturm 2
+        Zw (float): Atomic number for water
+        F_func (callable): Function to calculate F(E, Z)
+        G_func (callable): Function to calculate G(E, Z)
+    """
+    num1 = np.sum(omega2 * Z_N * F_func(E2i, Zw))
+    num2 = np.sum(omega1 * (G_func(E1i, Z) + F_func(E1i, Z)))
+    denom1 = np.sum(omega1 * Z_N * F_func(E1i, Zw))
+    denom2 = np.sum(omega2 * (G_func(E2i, Z) + F_func(E2i, Z)))
+
+    z_eff_num = U2w * num1 * num2 - U1w * denom1 * denom2
+    z_eff_denom = U1w * denom1 * denom2 - U2w * num1 * num2
+    return z_eff_num / z_eff_denom
+
+def F(E, Z):
+    return
+
+def G(E, Z):
+    return
+    
