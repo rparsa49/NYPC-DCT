@@ -235,7 +235,7 @@ def rho_e_trujillo(hu_j, omega_j, Z_N, E_ji, E_jiw, Z, Zw, F_func, G_func):
     denomintator = np.sum(omega_j * (Z_N**-1 * F_func(E_jiw, Zw) + G_func(E_jiw, Zw)))
     return (hu_j / 1000 + 1) * (denomintator / numerator)
 
-def z_eff_trujillo(U1w, U2w, omega1, omega2, Z_N, E1i, E2i, Zw, F_func, G_func):
+def z_eff_trujillo(U1w, U2w, omega1, omega2, Z_N, Z, E1i, E2i, Zw, F_func, G_func):
     """
     Calculate effective atomic number (Z_Eff) using the Trujillo-Bastidas method.
     Arguments:
@@ -244,6 +244,7 @@ def z_eff_trujillo(U1w, U2w, omega1, omega2, Z_N, E1i, E2i, Zw, F_func, G_func):
         omega1 (numpy.ndarray): Weights for energy spectra 1
         omega2 (numpy.ndarray): Weights for energy spectra 2
         Z_N (float): Normalization constant for atomic number
+        Z (float): Atomic number for material
         E1i (numpy.ndarray): Energy values for material at spectrum 1
         E2i (numpy.ndarray): Energy values for material at specturm 2
         Zw (float): Atomic number for water
@@ -260,6 +261,12 @@ def z_eff_trujillo(U1w, U2w, omega1, omega2, Z_N, E1i, E2i, Zw, F_func, G_func):
     return z_eff_num / z_eff_denom
 
 def F(E, Z):
+    """
+    Will calculate terms based on photon cross-sectional data
+    Args:
+        E (_type_): _description_
+        Z (_type_): _description_
+    """
     return
 
 def G(E, Z):
