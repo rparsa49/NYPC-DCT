@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import json
 import matplotlib.pyplot as plt
+from pydicom.pixel_data_handlers.util import apply_modality_lut
 
 # Function to save circles data to a file
 # Arguments:
@@ -76,38 +77,81 @@ def process_and_save_circles(image, circles_data_path):
         circles = filter_circles(circles)
         save_circles_data(circles, circles_data_path)
 
-# Function to draw circles on an image and calculate mean pixel values
+# Function to draw circles on an image and calculate HU values using modality LUT
 # Arguments:
 # - image: Image data
 # - saved_circles: Numpy array of saved circles data
 # - radii_ratios: List of radii ratios for smaller circles
+# - dicom_data: DICOM dataset to apply the modality LUT
 # Returns:
-# - Image with drawn circles and list of mean pixel values
-def draw_and_calculate_circles(image, saved_circles, radii_ratios):
+# - Image with drawn circles and list of mean HU values
+def draw_and_calculate_circles(image, saved_circles, radii_ratios, dicom_data):
     image_8bit = cv2.normalize(
         image, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
     contour_image = cv2.cvtColor(image_8bit, cv2.COLOR_GRAY2BGR)
-    mean_pixel_values = []
+    mean_hu_values = []
+
+    # Apply modality LUT to convert pixel values to Hounsfield Units (HU)
+    hu_image = apply_modality_lut(image, dicom_data)
 
     for circle in saved_circles[0, :]:
         x, y, radius = circle
-        cv2.circle(contour_image, (x, y), radius, (255, 0, 0), 2)
-        cv2.circle(contour_image, (x, y), 2, (0, 255, 0), 3)
+        # Draw the main circle's outline only (no fill)
+        cv2.circle(contour_image, (x, y), radius,
+                   (255, 0, 0), 2)  # Red outline
 
         for ratio in radii_ratios:
             new_radius = int(radius * ratio)
-            mean_value = calculate_mean_pixel_value(image, (x, y, new_radius))
-            mean_pixel_values.append(mean_value)
-            cv2.circle(contour_image, (x, y), new_radius, (0, 255, 255), 2)
+            mean_hu_value = calculate_mean_pixel_value(
+                hu_image, (x, y, new_radius))
+            mean_hu_values.append(mean_hu_value)
+            # Draw the inner circles' outline only (no fill)
+            cv2.circle(contour_image, (x, y), new_radius,
+                       (0, 255, 255), 2)  # Yellow outline
 
-    return contour_image, mean_pixel_values
+    return contour_image, mean_hu_values
 
-# Function to display an image using matplotlib
+# Function to display an image using matplotlib with a grayscale colormap
 # Arguments:
 # - image: Image data to be displayed
 # - title: Title for the displayed image
 def display_image(image, title='Image'):
-    plt.imshow(image)
+    plt.imshow(image, cmap='gray')
     plt.title(title)
+    plt.colorbar(label="Hounsfield Units (HU)")
     plt.axis('off')
     plt.show()
+
+# Function to categorize material based on HU value
+# Arguments: 
+# - hu_value: List of Houndsfield Units
+# Source: F. Fartin 2020 (https://prod-images-static.radiopaedia.org/images/52608436/ffb5a7e3ebb12255dec689e924ddbd_big_gallery.jpeg)
+def categorize_material(hu_value):
+    if hu_value <= -950:
+        return "Air"
+    elif -950 < hu_value <= -50:
+        return "Fat"
+    elif -50 < hu_value <= 20:
+        return "Simple fluid"
+    elif 20 < hu_value <= 45:
+        return "Soft tissue"
+    elif 45 < hu_value <= 90:
+        return "Acute blood"
+    elif 100 <= hu_value <= 500:
+        return "Iodinated contrast"
+    elif 300 <= hu_value <= 800:
+        return "Trabecular bone"
+    elif hu_value > 1000:
+        return "Cortical bone"
+    else:
+        return "Unknown"
+
+# Process each circle's and sub-circle's HU values to determine the material
+# Arguments:
+# - hu_values: List of Houndsfield Units to be categorized
+def determine_materials(hu_values):
+    materials = []
+    for hu in hu_values:
+        material = categorize_material(hu)
+        materials.append(material)
+    return materials
