@@ -224,8 +224,8 @@ def rho_e_trujillo(hu_j, omega_j, Z_N, E_ji, E_jiw, Z, Zw, F_func, G_func):
         hu_j (float): Hounsfield Unit for X-ray spectrum j
         omega_j (numpy.ndarray): Weights for energy spectra j
         Z_N (float): Normalization constant for atomic number
-        E_ji (numpy.ndarray): Energy values for material
-        E_jiw (numpy.ndarray): Energy values for water
+        E_ji (numpy.ndarray): Energy values for material (80, 120, 180 kVP)
+        E_jiw (numpy.ndarray): Energy values for water (80, 120, 180 kVP)
         Z (float): Atomic number for material
         Zw (float): Atomic number for water
         F_func (callable): Function to calculate F(E, Z)
@@ -245,8 +245,8 @@ def z_eff_trujillo(U1w, U2w, omega1, omega2, Z_N, Z, E1i, E2i, Zw, F_func, G_fun
         omega2 (numpy.ndarray): Weights for energy spectra 2
         Z_N (float): Normalization constant for atomic number
         Z (float): Atomic number for material
-        E1i (numpy.ndarray): Energy values for material at spectrum 1
-        E2i (numpy.ndarray): Energy values for material at specturm 2
+        E1i (numpy.ndarray): Energy values for material at spectrum 1 (80, 120, 180 kVP)
+        E2i (numpy.ndarray): Energy values for material at specturm 2 (80, 120, 180 kVP)
         Zw (float): Atomic number for water
         F_func (callable): Function to calculate F(E, Z)
         G_func (callable): Function to calculate G(E, Z)
