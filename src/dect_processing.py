@@ -146,6 +146,7 @@ def categorize_material(hu_value):
     else:
         return "Unknown"
 
+
 # Process each circle's and sub-circle's HU values to determine the material
 # Arguments:
 # - hu_values: List of Houndsfield Units to be categorized
@@ -155,3 +156,24 @@ def determine_materials(hu_values):
         material = categorize_material(hu)
         materials.append(material)
     return materials
+
+# Define known rho_e and z_eff values for each material
+material_properties = {
+    "Air": {"rho_e": 0.001, "z_eff": 7.6},
+    "Fat": {"rho_e": 0.91, "z_eff": 5.92},
+    "Simple fluid": {"rho_e": 1.0, "z_eff": 7.42},
+    "Soft tissue": {"rho_e": 1.0, "z_eff": 7.42},
+    "Acute blood": {"rho_e": 1.05, "z_eff": 7.51},
+    "Iodinated contrast": {"rho_e": 1.9, "z_eff": 53.0},
+    "Trabecular bone": {"rho_e": 1.1, "z_eff": 12.31},
+    "Cortical bone": {"rho_e": 1.85, "z_eff": 13.8},
+    "Unknown": {"rho_e": None, "z_eff": None}
+}
+
+# Function to get true rho_e and z_eff for a material
+def get_true_values(material):
+    return material_properties.get(material, {"rho_e": None, "z_eff": None})
+
+# Function to calculate RMSE manually using numpy
+def calculate_rmse(true_values, predicted_values):
+    return np.sqrt(np.mean((np.array(true_values) - np.array(predicted_values))**2))
