@@ -157,17 +157,81 @@ def determine_materials(hu_values):
         materials.append(material)
     return materials
 
-# Define known rho_e and z_eff values for each material
+
+# Define known rho_e and z_eff values for each material with additional parameters
 material_properties = {
-    "Air": {"rho_e": 0.001, "z_eff": 7.6},
-    "Fat": {"rho_e": 0.91, "z_eff": 5.92},
-    "Simple fluid": {"rho_e": 1.0, "z_eff": 7.42},
-    "Soft tissue": {"rho_e": 1.0, "z_eff": 7.42},
-    "Acute blood": {"rho_e": 1.05, "z_eff": 7.51},
-    "Iodinated contrast": {"rho_e": 1.9, "z_eff": 53.0},
-    "Trabecular bone": {"rho_e": 1.1, "z_eff": 12.31},
-    "Cortical bone": {"rho_e": 1.85, "z_eff": 13.8},
-    "Unknown": {"rho_e": None, "z_eff": None}
+    "Air": {
+        "rho_e": 0.001,
+        "z_eff": 7.6,
+        "w_m": [1.0],  # Mostly nitrogen
+        "Z": [7],  # Nitrogen
+        "A": [14.007],  # Atomic weight of nitrogen
+        "I": [82.0]  # Mean excitation potential for nitrogen
+    },
+    "Fat": {
+        "rho_e": 0.91,
+        "z_eff": 5.92,
+        "w_m": [0.6, 0.4],  # Carbon and Hydrogen in fat
+        "Z": [6, 1],  # Carbon and Hydrogen
+        "A": [12.01, 1.0079],  # Atomic weights of Carbon and Hydrogen
+        "I": [78.0, 19.2]  # Mean excitation potential for Carbon and Hydrogen
+    },
+    "Simple fluid": {
+        "rho_e": 1.0,
+        "z_eff": 7.42,
+        "w_m": [0.111894, 0.888106],  # Hydrogen and Oxygen in water
+        "Z": [1, 8],  # Hydrogen and Oxygen
+        "A": [1.0079, 15.999],  # Atomic weights of Hydrogen and Oxygen
+        "I": [19.2, 95.0]  # Mean excitation potential for Hydrogen and Oxygen
+    },
+    "Soft tissue": {
+        "rho_e": 1.0,
+        "z_eff": 7.42,
+        "w_m": [0.1, 0.2, 0.7],  # Hydrogen, Carbon, Oxygen
+        "Z": [1, 6, 8],  # Hydrogen, Carbon, Oxygen
+        "A": [1.0079, 12.01, 15.999],  # Atomic weights
+        "I": [19.2, 78.0, 95.0]  # Mean excitation potentials
+    },
+    "Acute blood": {
+        "rho_e": 1.05,
+        "z_eff": 7.51,
+        "w_m": [0.1, 0.8, 0.1],  # Hydrogen, Oxygen, Carbon
+        "Z": [1, 8, 6],  # Hydrogen, Oxygen, Carbon
+        "A": [1.0079, 15.999, 12.01],  # Atomic weights
+        "I": [19.2, 95.0, 78.0]  # Mean excitation potentials
+    },
+    "Iodinated contrast": {
+        "rho_e": 1.9,
+        "z_eff": 53.0,
+        "w_m": [0.2, 0.8],  # Iodine and water
+        "Z": [53, 8],  # Iodine and Oxygen
+        "A": [126.904, 15.999],  # Atomic weights
+        "I": [484.0, 95.0]  # Mean excitation potentials
+    },
+    "Trabecular bone": {
+        "rho_e": 1.1,
+        "z_eff": 12.31,
+        "w_m": [0.4, 0.6],  # Calcium and Phosphorus
+        "Z": [20, 15],  # Calcium and Phosphorus
+        "A": [40.08, 30.974],  # Atomic weights
+        "I": [322.0, 214.0]  # Mean excitation potentials
+    },
+    "Cortical bone": {
+        "rho_e": 1.85,
+        "z_eff": 13.8,
+        "w_m": [0.4, 0.6],  # Calcium and Phosphorus
+        "Z": [20, 15],  # Calcium and Phosphorus
+        "A": [40.08, 30.974],  # Atomic weights
+        "I": [322.0, 214.0]  # Mean excitation potentials
+    },
+    "Unknown": {
+        "rho_e": None,
+        "z_eff": None,
+        "w_m": None,
+        "Z": None,
+        "A": None,
+        "I": None
+    }
 }
 
 # Function to get true rho_e and z_eff for a material
