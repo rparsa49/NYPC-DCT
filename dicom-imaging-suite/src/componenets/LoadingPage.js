@@ -9,34 +9,33 @@ import LoadingSpinner from "./LoadingSpinner";
 const LoadingPage = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
-  const [isLoading, setIsLoading] = useState(false); // State for loading spinner
-  const [isImagesReady, setIsImagesReady] = useState(false); // State to show images
+  const [isLoading, setIsLoading] = useState(false);
+  const [isImagesReady, setIsImagesReady] = useState(false);
   const [highImages, setHighImages] = useState([]);
   const [lowImages, setLowImages] = useState([]);
   const [sliceThickness, setSliceThickness] = useState(null);
-  const [currentIndex, setCurrentIndex] = useState(0); // Track current index for counter
-  const [circleRadius, setCircleRadius] = useState(10); // Default radius for circles
-  const [phantomType, setPhantomType] = useState("head"); // Default phantom type
-  const [models, setModels] = useState([]); // Supported models
-  const [selectedModel, setSelectedModel] = useState(""); // Selected model
-  
-    useEffect(() => {
-      // Fetch the supported models from the backend
-      fetch("http://127.0.0.1:5050/get-supported-models")
-        .then((response) => response.json())
-        .then((data) => {
-          const modelOptions = Object.keys(data).map((key) => ({
-            name: key,
-            description: data[key].description,
-          }));
-          setModels(modelOptions);
-          setSelectedModel(modelOptions[0]?.name || ""); // Default to the first model if available
-        })
-        .catch((error) => console.error("Failed to fetch models:", error));
-    }, []);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [circleRadius, setCircleRadius] = useState(10);
+  const [phantomType, setPhantomType] = useState("head");
+  const [models, setModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState("");
+  const [results, setResults] = useState([]);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:5050/get-supported-models")
+      .then((response) => response.json())
+      .then((data) => {
+        const modelOptions = Object.keys(data).map((key) => ({
+          name: key,
+        }));
+        setModels(modelOptions);
+        setSelectedModel(modelOptions[0]?.name || "");
+      })
+      .catch((error) => console.error("Failed to fetch models:", error));
+  }, []);
 
   const handleFolderChange = async (event) => {
-    setIsLoading(true); // Start loading spinner
+    setIsLoading(true);
     const files = event.target.files;
     const formData = new FormData();
 
@@ -56,40 +55,39 @@ const LoadingPage = () => {
 
       const result = await response.json();
       setUploadStatus("Upload successful!");
-
-      // Store image data and slice thickness in state
       setHighImages(result.high_kvp_images);
       setLowImages(result.low_kvp_images);
       setSliceThickness(result.slice_thickness);
-      setIsImagesReady(true); // Switch to image view
+      setIsImagesReady(true);
     } catch (error) {
       console.error("Upload failed:", error);
       setUploadStatus("Upload failed. Please try again.");
     } finally {
-      setIsLoading(false); // Stop loading spinner
+      setIsLoading(false);
     }
   };
 
+  const handleCalculate = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:5050/analyze-inserts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          radius: circleRadius,
+          phantom: phantomType,
+          model: selectedModel,
+        }),
+      });
 
-  const handleUploadClick = () => {
-    document.getElementById("folderInput").click();
-  };
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
 
-  const closeHelpModal = () => {
-    setShowHelp(false);
-  };
-
-  const handleModelChange = (event) => {
-    setSelectedModel(event.target.value);
-  };
-
-  const handleBackClick = () => {
-    setIsImagesReady(false);
-  };
-
-  const handleCalculate = () => {
-    // Implement calculation logic here
-    console.log(`Calculating stopping power with model: ${selectedModel}`);
+      const analysisResult = await response.json();
+      setResults(analysisResult.results);
+    } catch (error) {
+      console.error("Failed to calculate stopping power:", error);
+    }
   };
 
   const handleNextImage = () => {
@@ -107,17 +105,11 @@ const LoadingPage = () => {
     );
   };
 
-  const handlePhantomTypeChange = (event) => {
-    setPhantomType(event.target.value);
-  };
-
-  // Handle slider change to update circle radius
   const handleRadiusChange = async (event) => {
     const newRadius = event.target.value;
     setCircleRadius(newRadius);
 
     try {
-      // Send a request to the backend to update images with the new circle radius
       const response = await fetch(`http://127.0.0.1:5050/update-circles`, {
         method: "POST",
         headers: {
@@ -143,7 +135,6 @@ const LoadingPage = () => {
     }
   };
 
-  // Conditionally render content based on isImagesReady
   return (
     <Background>
       <Content>
@@ -162,18 +153,20 @@ const LoadingPage = () => {
               style={{ display: "none" }}
               onChange={handleFolderChange}
             />
-            <UploadButton onClick={handleUploadClick}>
+            <UploadButton
+              onClick={() => document.getElementById("folderInput").click()}
+            >
               Upload DICOM Series
             </UploadButton>
             {uploadStatus && <StatusMessage>{uploadStatus}</StatusMessage>}
             <HelpButton onClick={() => setShowHelp(true)}>
               <AiOutlineQuestionCircle size={24} />
             </HelpButton>
-            {showHelp && <HelpModal onClose={closeHelpModal} />}
+            {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
           </>
         )}
 
-        {isImagesReady && (
+        {isImagesReady && results.length === 0 && (
           <>
             <Header>
               <h1>DECT Scan Viewer</h1>
@@ -188,7 +181,10 @@ const LoadingPage = () => {
             />
             <SelectContainer>
               <label>Phantom Type:</label>
-              <Select value={phantomType} onChange={handlePhantomTypeChange}>
+              <Select
+                value={phantomType}
+                onChange={(e) => setPhantomType(e.target.value)}
+              >
                 <option value="head">Head</option>
                 <option value="body">Body</option>
               </Select>
@@ -205,7 +201,10 @@ const LoadingPage = () => {
             </SliderContainer>
             <SelectContainer>
               <label>Select Model:</label>
-              <Select value={selectedModel} onChange={handleModelChange}>
+              <Select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+              >
                 {models.map((model) => (
                   <option key={model.name} value={model.name}>
                     {model.name} - {model.description}
@@ -216,16 +215,37 @@ const LoadingPage = () => {
             <CalculateButton onClick={handleCalculate}>
               Calculate Stopping Power
             </CalculateButton>
-            <BackButton onClick={handleBackClick}>
-              <AiOutlineArrowLeft size={20} />
-            </BackButton>
           </>
+        )}
+
+        {results.length > 0 && (
+          <ResultsTable>
+            <thead>
+              <tr>
+                <TableHeader>Insert #</TableHeader>
+                <TableHeader>Material</TableHeader>
+                <TableHeader>ρ_e</TableHeader>
+                <TableHeader>Z_eff</TableHeader>
+                <TableHeader>Stopping Power Ratio</TableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((result, index) => (
+                <tr key={index}>
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>{result.material}</TableCell>
+                  <TableCell>{result.rho_e.toFixed(2)}</TableCell>
+                  <TableCell>{result.z_eff.toFixed(2)}</TableCell>
+                  <TableCell>{result.stopping_power.toFixed(2)}</TableCell>
+                </tr>
+              ))}
+            </tbody>
+          </ResultsTable>
         )}
       </Content>
     </Background>
   );
 };
-
 
 export default LoadingPage;
 
@@ -395,4 +415,24 @@ const CalculateButton = styled.button`
     transform: translateY(-3px);
     box-shadow: 0px 12px 20px rgba(255, 107, 203, 0.6);
   }
+`;
+const ResultsTable = styled.table`
+  width: 100%;
+  margin-top: 20px;
+  color: #e0eafc;
+  border-collapse: collapse;
+  font-size: 16px;
+`;
+
+const TableHeader = styled.th`
+  padding: 10px;
+  background: #ff6bcb;
+  color: white;
+  text-align: center;
+`;
+
+const TableCell = styled.td`
+  padding: 10px;
+  border-top: 1px solid #ff6bcb;
+  text-align: center;
 `;
