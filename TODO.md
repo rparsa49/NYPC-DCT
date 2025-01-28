@@ -1,6 +1,6 @@
 ## I gotta get this done soon...
 
-- Make switch case for three models (Saito, Hunemohr, BVM)
+- Make switch case for three models (Saito, Hunemohr, BVM) ✅ (Discarded Hunemohr)
 
 - Add sliders onto frontend for any constants for each model
 
@@ -8,4 +8,4 @@
 
 - Separate calibration/testing phases
 
-- Separate high and low HU in backend for Saito
+- Separate high and low HU in backend (UP NEXT ▶️)
