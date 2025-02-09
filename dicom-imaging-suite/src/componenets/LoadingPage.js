@@ -20,19 +20,21 @@ const LoadingPage = () => {
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [results, setResults] = useState([]);
+  const [betaValue, setBetaValue] = useState(1);
 
-  useEffect(() => {
-    fetch("http://127.0.0.1:5050/get-supported-models")
-      .then((response) => response.json())
-      .then((data) => {
-        const modelOptions = Object.keys(data).map((key) => ({
-          name: key,
-        }));
-        setModels(modelOptions);
-        setSelectedModel(modelOptions[0]?.name || "");
-      })
-      .catch((error) => console.error("Failed to fetch models:", error));
-  }, []);
+useEffect(() => {
+  fetch("http://127.0.0.1:5050/get-supported-models")
+    .then((response) => response.json())
+    .then((data) => {
+      const modelOptions = Object.entries(data).map(([key, value]) => ({
+        name: value.name, // Ensure we use the actual name
+      }));
+
+      setModels(modelOptions);
+      setSelectedModel(modelOptions[0]?.name || "");
+    })
+    .catch((error) => console.error("Failed to fetch models:", error));
+}, []);
 
   const handleFolderChange = async (event) => {
     setIsLoading(true);
@@ -69,6 +71,7 @@ const LoadingPage = () => {
 
   const handleCalculate = async () => {
     try {
+      console.log(selectedModel)
       const response = await fetch("http://127.0.0.1:5050/analyze-inserts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,6 +79,7 @@ const LoadingPage = () => {
           radius: circleRadius,
           phantom: phantomType,
           model: selectedModel,
+          beta: betaValue
         }),
       });
 
@@ -133,6 +137,10 @@ const LoadingPage = () => {
     } catch (error) {
       console.error("Failed to update circle radius:", error);
     }
+  };
+
+  const handleBetaChange = (event) => {
+    setBetaValue(event.target.value);
   };
 
   return (
@@ -207,11 +215,26 @@ const LoadingPage = () => {
               >
                 {models.map((model) => (
                   <option key={model.name} value={model.name}>
-                    {model.name} - {model.description}
+                    {model.name}
                   </option>
                 ))}
               </Select>
             </SelectContainer>
+            {selectedModel === "Saito" && (
+              <>
+                <SliderContainer>
+                  <label>Beta Calibration: {betaValue}</label>
+                  <RadiusSlider
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.001"
+                    value={betaValue}
+                    onChange={handleBetaChange}
+                  />
+                </SliderContainer>
+              </>
+            )}
             <CalculateButton onClick={handleCalculate}>
               Calculate Stopping Power
             </CalculateButton>
@@ -235,8 +258,18 @@ const LoadingPage = () => {
                   <TableCell>{index + 1}</TableCell>
                   <TableCell>{result.material}</TableCell>
                   <TableCell>{result.rho_e.toFixed(2)}</TableCell>
-                  <TableCell>{result.z_eff.toFixed(2)}</TableCell>
-                  <TableCell>{result.stopping_power.toFixed(2)}</TableCell>
+                  <TableCell>
+                    {typeof result.z_eff[index] === "number" &&
+                    !isNaN(result.z_eff[index])
+                      ? result.z_eff[index].toFixed(2)
+                      : "N/A"}
+                  </TableCell>{" "}
+                  <TableCell>
+                    {typeof result.stopping_power[index] === "number" &&
+                    !isNaN(result.stopping_power[index])
+                      ? result.stopping_power[index].toFixed(5)
+                      : "N/A"}
+                  </TableCell>{" "}
                 </tr>
               ))}
             </tbody>
