@@ -11,8 +11,7 @@ const HelpModal = ({ onClose }) => {
         </CloseButton>
         <Title>How to Use the App</Title>
         <Description>
-          Click "Upload Series" to upload your DICOM files. Once uploaded, the
-          app will process the files, and you can view the calculated results.
+          Click "Upload Series" to upload your DICOM scans for calibration. Once calibrated, you can upload further scans to test the calibration settings.
         </Description>
       </ModalContent>
     </ModalOverlay>

@@ -407,6 +407,9 @@ for (let pair of formData.entries()) {
           </>
         )}
       </Content>
+      <Footer>
+        <FooterText>© 2025 DECT Imaging Suite. All rights reserved.</FooterText>
+      </Footer>
     </Background>
   );
 };
@@ -416,12 +419,16 @@ export default LoadingPage;
 // Styled components
 const Background = styled.div`
   background: linear-gradient(135deg, #1f2a48, #3e5b99);
-  height: 100vh;
+  min-height: 100vh;
+  width: 100vw;
   display: flex;
   justify-content: center;
   align-items: center;
   color: #e0eafc;
   font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
 `;
 
 const Content = styled.div`
@@ -614,4 +621,22 @@ const TestingButton = styled.button`
     transform: translateY(-3px);
     box-shadow: 0px 12px 20px rgba(107, 203, 255, 0.6);
   }
+`;
+
+const Footer = styled.footer`
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: linear-gradient(135deg, #1f2a48, #3e5b99);
+  color: #e0eafc;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  box-shadow: 0px -5px 10px rgba(0, 0, 0, 0.2);
+`;
+
+const FooterText = styled.p`
+  margin: 0;
 `;
