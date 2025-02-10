@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import HelpModal from "./HelpModal";
-import { AiOutlineArrowLeft, AiOutlineQuestionCircle } from "react-icons/ai";
+import { AiOutlineQuestionCircle } from "react-icons/ai";
 import { FaBrain } from "react-icons/fa";
 import ImageViewer from "./ImageViewer";
 import LoadingSpinner from "./LoadingSpinner";
@@ -76,7 +76,8 @@ useEffect(() => {
 
   const handleCalculate = async () => {
     try {
-      console.log(selectedModel);
+      console.log("Selected Model:", selectedModel);
+
       const response = await fetch("http://127.0.0.1:5050/analyze-inserts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,19 +94,26 @@ useEffect(() => {
       }
 
       const analysisResult = await response.json();
-      console.log(analysisResult);
-      // Extract alpha, beta, lambda as arrays
-      const alphaList = analysisResult.results.map((res) => res.alpha);
-      const betaList = analysisResult.results.map((res) => res.beta);
-      const lambdaList = analysisResult.results.map((res) => res.lambda);
 
-      setCalibrationParams({
-        alpha: alphaList,
-        beta: betaList,
-        lambda: lambdaList,
-      });
+      // Log the full analysis result
+      console.log("Analysis Result:", analysisResult);
 
-      setResults(analysisResult.results);
+      // Ensure z_eff and stopping_power are correctly formatted
+      const processedResults = analysisResult.results.map((res, index) => ({
+        material: res.material,
+        rho_e: res.rho_e,
+        z_eff: Array.isArray(res.z_eff) ? res.z_eff[index] : res.z_eff, // Handle array or single value
+        stopping_power: Array.isArray(res.stopping_power)
+          ? res.stopping_power[index]
+          : res.stopping_power, // Handle array or single value
+        alpha: res.alpha,
+        beta: res.beta,
+        lambda: res.lambda,
+      }));
+
+      console.log("Processed Results:", processedResults);
+
+      setResults(processedResults);
     } catch (error) {
       console.error("Failed to calculate stopping power:", error);
     }
@@ -208,6 +216,23 @@ for (let pair of formData.entries()) {
     setBetaValue(event.target.value);
   };
 
+  const handleBack = () => {
+    setIsImagesReady(false);
+    setResults([]);
+    setUploadStatus(null);
+    setHighImages([]);
+    setLowImages([]);
+    setSliceThickness(null);
+    setCalibrationParams({ alpha: null, beta: null, lambda: null });
+    setCircleRadius(100)
+    setBetaValue(null)
+    setCalibrationParams({
+        alpha: null,
+        beta: null,
+        lambda: null,
+      });  
+    };
+
   return (
     <Background>
       <Content>
@@ -298,6 +323,21 @@ for (let pair of formData.entries()) {
                 </SliderContainer>
               </>
             )}
+            {selectedModel === "Hunemohr" && (
+              <>
+                <SliderContainer>
+                  <label>Calibration Parameter: {betaValue}</label>
+                  <RadiusSlider
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.001"
+                    value={betaValue}
+                    onChange={handleBetaChange}
+                  />
+                </SliderContainer>
+              </>
+            )}
             <CalculateButton onClick={handleCalculate}>
               Calculate Stopping Power
             </CalculateButton>
@@ -305,6 +345,7 @@ for (let pair of formData.entries()) {
         )}
         {results.length > 0 && (
           <>
+            <BackButton onClick={handleBack}> ← </BackButton>
             <ResultsTable>
               <thead>
                 <tr>
@@ -322,15 +363,14 @@ for (let pair of formData.entries()) {
                     <TableCell>{result.material}</TableCell>
                     <TableCell>{result.rho_e.toFixed(2)}</TableCell>
                     <TableCell>
-                      {typeof result.z_eff[index] === "number" &&
-                      !isNaN(result.z_eff[index])
-                        ? result.z_eff[index].toFixed(2)
+                      {typeof result.z_eff === "number" && !isNaN(result.z_eff)
+                        ? result.z_eff.toFixed(2)
                         : "N/A"}
                     </TableCell>
                     <TableCell>
-                      {typeof result.stopping_power[index] === "number" &&
-                      !isNaN(result.stopping_power[index])
-                        ? result.stopping_power[index].toFixed(5)
+                      {typeof result.stopping_power === "number" &&
+                      !isNaN(result.stopping_power)
+                        ? result.stopping_power.toFixed(5)
                         : "N/A"}
                     </TableCell>
                   </tr>
@@ -473,7 +513,7 @@ const SliceInfo = styled.p`
 
 const BackButton = styled.button`
   position: absolute;
-  top: 20px;
+  top: 10px;
   left: 20px;
   background: #ff6bcb;
   color: white;
@@ -481,9 +521,6 @@ const BackButton = styled.button`
   border-radius: 50%;
   width: 40px;
   height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
   transition: background 0.3s, transform 0.2s;
