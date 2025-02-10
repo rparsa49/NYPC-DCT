@@ -21,6 +21,11 @@ const LoadingPage = () => {
   const [selectedModel, setSelectedModel] = useState("");
   const [results, setResults] = useState([]);
   const [betaValue, setBetaValue] = useState(1);
+  const [calibrationParams, setCalibrationParams] = useState({
+    alpha: null,
+    beta: null,
+    lambda: null
+  })
 
 useEffect(() => {
   fetch("http://127.0.0.1:5050/get-supported-models")
@@ -71,7 +76,7 @@ useEffect(() => {
 
   const handleCalculate = async () => {
     try {
-      console.log(selectedModel)
+      console.log(selectedModel);
       const response = await fetch("http://127.0.0.1:5050/analyze-inserts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,7 +84,7 @@ useEffect(() => {
           radius: circleRadius,
           phantom: phantomType,
           model: selectedModel,
-          beta: betaValue
+          beta: betaValue,
         }),
       });
 
@@ -88,11 +93,71 @@ useEffect(() => {
       }
 
       const analysisResult = await response.json();
+      console.log(analysisResult);
+      // Extract alpha, beta, lambda as arrays
+      const alphaList = analysisResult.results.map((res) => res.alpha);
+      const betaList = analysisResult.results.map((res) => res.beta);
+      const lambdaList = analysisResult.results.map((res) => res.lambda);
+
+      setCalibrationParams({
+        alpha: alphaList,
+        beta: betaList,
+        lambda: lambdaList,
+      });
+
       setResults(analysisResult.results);
     } catch (error) {
       console.error("Failed to calculate stopping power:", error);
     }
   };
+
+  // After calibration, test on new materials
+  const handleTestCalibration = async (event) => {
+    setIsLoading(true);
+    const files = event.target.files;
+    const formData = new FormData();
+
+    Array.from(files).forEach((file) => {
+      formData.append("files", file, file.webkitRelativePath);
+    })
+
+    // Ensure calibration params exist
+    if (!calibrationParams.alpha || !calibrationParams.beta || !calibrationParams.lambda) {
+      console.error("Calibration parameters are missing. Please run calculation first.");
+      setUploadStatus("Please run the calculation before testing calibration.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Append calibration params from previous calc
+    formData.append("alpha", calibrationParams.alpha);
+    formData.append("beta", calibrationParams.beta);
+    formData.append("lambda", calibrationParams.lambda);
+    formData.append("method", selectedModel);
+
+for (let pair of formData.entries()) {
+  console.log(pair[0], pair[1]);
+}
+    try {
+      const response = await fetch("http://127.0.0.1:5050/test-calibration", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setResults(result.new_table);
+      setUploadStatus("Test calibration successful!");
+    } catch (error) {
+      console.error("Test calibration failed:", error);
+      setUploadStatus("Test calibration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  } 
 
   const handleNextImage = () => {
     setCurrentIndex(
@@ -147,7 +212,6 @@ useEffect(() => {
     <Background>
       <Content>
         {isLoading && <LoadingSpinner />}
-
         {!isImagesReady && !isLoading && (
           <>
             <BrainIcon />
@@ -173,7 +237,6 @@ useEffect(() => {
             {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
           </>
         )}
-
         {isImagesReady && results.length === 0 && (
           <>
             <Header>
@@ -240,40 +303,68 @@ useEffect(() => {
             </CalculateButton>
           </>
         )}
-
         {results.length > 0 && (
-          <ResultsTable>
-            <thead>
-              <tr>
-                <TableHeader>Insert #</TableHeader>
-                <TableHeader>Material</TableHeader>
-                <TableHeader>ρ_e</TableHeader>
-                <TableHeader>Z_eff</TableHeader>
-                <TableHeader>Stopping Power Ratio</TableHeader>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((result, index) => (
-                <tr key={index}>
-                  <TableCell>{index + 1}</TableCell>
-                  <TableCell>{result.material}</TableCell>
-                  <TableCell>{result.rho_e.toFixed(2)}</TableCell>
-                  <TableCell>
-                    {typeof result.z_eff[index] === "number" &&
-                    !isNaN(result.z_eff[index])
-                      ? result.z_eff[index].toFixed(2)
-                      : "N/A"}
-                  </TableCell>{" "}
-                  <TableCell>
-                    {typeof result.stopping_power[index] === "number" &&
-                    !isNaN(result.stopping_power[index])
-                      ? result.stopping_power[index].toFixed(5)
-                      : "N/A"}
-                  </TableCell>{" "}
+          <>
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>Insert #</TableHeader>
+                  <TableHeader>Material</TableHeader>
+                  <TableHeader>ρ_e</TableHeader>
+                  <TableHeader>Z_eff</TableHeader>
+                  <TableHeader>Stopping Power Ratio</TableHeader>
                 </tr>
-              ))}
-            </tbody>
-          </ResultsTable>
+              </thead>
+              <tbody>
+                {results.map((result, index) => (
+                  <tr key={index}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{result.material}</TableCell>
+                    <TableCell>{result.rho_e.toFixed(2)}</TableCell>
+                    <TableCell>
+                      {typeof result.z_eff[index] === "number" &&
+                      !isNaN(result.z_eff[index])
+                        ? result.z_eff[index].toFixed(2)
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {typeof result.stopping_power[index] === "number" &&
+                      !isNaN(result.stopping_power[index])
+                        ? result.stopping_power[index].toFixed(5)
+                        : "N/A"}
+                    </TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </ResultsTable>
+            <>
+              <input
+                type="file"
+                id="testFolderInput"
+                webkitdirectory="true"
+                directory="true"
+                style={{ display: "none" }}
+                onChange={handleTestCalibration}
+              />
+              <TestingButton
+                onClick={() => {
+                  if (
+                    !calibrationParams.alpha ||
+                    !calibrationParams.beta ||
+                    !calibrationParams.lambda
+                  ) {
+                    alert(
+                      "Please run the calculation first before testing calibration."
+                    );
+                    return;
+                  }
+                  document.getElementById("testFolderInput").click();
+                }}
+              >
+                Test Calibration 📊
+              </TestingButton>
+            </>{" "}
+          </>
         )}
       </Content>
     </Background>
@@ -468,4 +559,22 @@ const TableCell = styled.td`
   padding: 10px;
   border-top: 1px solid #ff6bcb;
   text-align: center;
+`;
+
+const TestingButton = styled.button`
+  background: #6bcbff;
+  color: white;
+  padding: 15px 25px;
+  font-size: 16px;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0px 8px 15px rgba(107, 203, 255, 0.4);
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0px 12px 20px rgba(107, 203, 255, 0.6);
+  }
 `;
