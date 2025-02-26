@@ -23,19 +23,19 @@ const LoadingPage = () => {
   const [highKVP, setHighKVP] = useState(0);
   const [lowKVP, setLowKVP] = useState(0);
 
-//   useEffect(() => {
-//   fetch("http://127.0.0.1:5050/get-supported-models")
-//     .then((response) => response.json())
-//     .then((data) => {
-//       const modelOptions = Object.entries(data).map(([key, value]) => ({
-//         name: value.name, 
-//       }));
+  //   useEffect(() => {
+  //   fetch("http://127.0.0.1:5050/get-supported-models")
+  //     .then((response) => response.json())
+  //     .then((data) => {
+  //       const modelOptions = Object.entries(data).map(([key, value]) => ({
+  //         name: value.name,
+  //       }));
 
-//       setModels(modelOptions);
-//       setSelectedModel(modelOptions[0]?.name || "");
-//     })
-//     .catch((error) => console.error("Failed to fetch models:", error));
-// }, []);
+  //       setModels(modelOptions);
+  //       setSelectedModel(modelOptions[0]?.name || "");
+  //     })
+  //     .catch((error) => console.error("Failed to fetch models:", error));
+  // }, []);
 
   const handleFolderChange = async (event) => {
     setIsLoading(true);
@@ -73,6 +73,15 @@ const LoadingPage = () => {
     try {
       console.log("Selected Model:", selectedModel);
 
+      // Get the current image pair
+      const currentHighImage = highImages[currentIndex];
+      const currentLowImage = lowImages[currentIndex];
+
+      if (!currentHighImage || !currentLowImage) {
+        console.error("No valid image pair found at index:", currentIndex);
+        return;
+      }
+
       const response = await fetch("http://127.0.0.1:5050/analyze-inserts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,9 +89,10 @@ const LoadingPage = () => {
           radius: circleRadius,
           phantom: phantomType,
           highKVP: highKVP,
-          lowKVP: lowKVP, 
-          sliceThickness: sliceThickness
-          // model: selectedModel
+          lowKVP: lowKVP,
+          sliceThickness: sliceThickness,
+          high_kvp_image: currentHighImage, // Send only the selected high image
+          low_kvp_image: currentLowImage, // Send only the selected low image
         }),
       });
 
@@ -102,7 +112,7 @@ const LoadingPage = () => {
         z_eff: Array.isArray(res.z_eff) ? res.z_eff[index] : res.z_eff, // Handle array or single value
         stopping_power: Array.isArray(res.stopping_power)
           ? res.stopping_power[index]
-          : res.stopping_power
+          : res.stopping_power,
       }));
 
       console.log("Processed Results:", processedResults);
@@ -158,7 +168,6 @@ const LoadingPage = () => {
     }
   };
 
-
   const handleBack = () => {
     setIsImagesReady(false);
     setResults([]);
@@ -167,7 +176,7 @@ const LoadingPage = () => {
     setLowImages([]);
     setSliceThickness(null);
     setCircleRadius(100);
-    };
+  };
 
   // Setting user input for parameters
   const handleHighKVPChange = async (event) => {
@@ -180,7 +189,7 @@ const LoadingPage = () => {
 
   const handleSliceThicknessChange = async (event) => {
     setSliceThickness(event.target.value);
-  }
+  };
 
   // START UI
   return (
