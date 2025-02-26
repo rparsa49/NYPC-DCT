@@ -13,15 +13,15 @@ const LoadingPage = () => {
   const [isImagesReady, setIsImagesReady] = useState(false);
   const [highImages, setHighImages] = useState([]);
   const [lowImages, setLowImages] = useState([]);
-  const [sliceThickness, setSliceThickness] = useState(null);
+  const [sliceThickness, setSliceThickness] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [circleRadius, setCircleRadius] = useState(10);
   const [phantomType, setPhantomType] = useState("head");
   // const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [results, setResults] = useState([]);
-  const [highKVP, setHighKVP] = useState(null);
-  const [lowKVP, setLowKVP] = useState(null);
+  const [highKVP, setHighKVP] = useState(0);
+  const [lowKVP, setLowKVP] = useState(0);
 
 //   useEffect(() => {
 //   fetch("http://127.0.0.1:5050/get-supported-models")
@@ -79,6 +79,9 @@ const LoadingPage = () => {
         body: JSON.stringify({
           radius: circleRadius,
           phantom: phantomType,
+          highKVP: highKVP,
+          lowKVP: lowKVP, 
+          sliceThickness: sliceThickness
           // model: selectedModel
         }),
       });
@@ -266,14 +269,14 @@ const LoadingPage = () => {
               />
             </SliderContainer>
             <SliderContainer>
-              <label>Slice Thickness : {sliceThickness}mm</label>
+              <label>Slice Thickness : {sliceThickness} mm</label>
               <RadiusSlider
                 type="range"
                 min="0"
                 max="20"
                 step={0.5}
                 value={sliceThickness}
-                onChange={setSliceThickness}
+                onChange={handleSliceThicknessChange}
               />
             </SliderContainer>
             {/* <SelectContainer>
