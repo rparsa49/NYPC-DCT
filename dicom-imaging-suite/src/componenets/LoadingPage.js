@@ -17,29 +17,25 @@ const LoadingPage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [circleRadius, setCircleRadius] = useState(10);
   const [phantomType, setPhantomType] = useState("head");
-  const [models, setModels] = useState([]);
+  // const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [results, setResults] = useState([]);
-  const [betaValue, setBetaValue] = useState(1);
-  const [calibrationParams, setCalibrationParams] = useState({
-    alpha: null,
-    beta: null,
-    lambda: null
-  })
+  const [highKVP, setHighKVP] = useState(null);
+  const [lowKVP, setLowKVP] = useState(null);
 
-useEffect(() => {
-  fetch("http://127.0.0.1:5050/get-supported-models")
-    .then((response) => response.json())
-    .then((data) => {
-      const modelOptions = Object.entries(data).map(([key, value]) => ({
-        name: value.name, // Ensure we use the actual name
-      }));
+//   useEffect(() => {
+//   fetch("http://127.0.0.1:5050/get-supported-models")
+//     .then((response) => response.json())
+//     .then((data) => {
+//       const modelOptions = Object.entries(data).map(([key, value]) => ({
+//         name: value.name, 
+//       }));
 
-      setModels(modelOptions);
-      setSelectedModel(modelOptions[0]?.name || "");
-    })
-    .catch((error) => console.error("Failed to fetch models:", error));
-}, []);
+//       setModels(modelOptions);
+//       setSelectedModel(modelOptions[0]?.name || "");
+//     })
+//     .catch((error) => console.error("Failed to fetch models:", error));
+// }, []);
 
   const handleFolderChange = async (event) => {
     setIsLoading(true);
@@ -64,7 +60,6 @@ useEffect(() => {
       setUploadStatus("Upload successful!");
       setHighImages(result.high_kvp_images);
       setLowImages(result.low_kvp_images);
-      setSliceThickness(result.slice_thickness);
       setIsImagesReady(true);
     } catch (error) {
       console.error("Upload failed:", error);
@@ -84,8 +79,7 @@ useEffect(() => {
         body: JSON.stringify({
           radius: circleRadius,
           phantom: phantomType,
-          model: selectedModel,
-          beta: betaValue,
+          // model: selectedModel
         }),
       });
 
@@ -105,10 +99,7 @@ useEffect(() => {
         z_eff: Array.isArray(res.z_eff) ? res.z_eff[index] : res.z_eff, // Handle array or single value
         stopping_power: Array.isArray(res.stopping_power)
           ? res.stopping_power[index]
-          : res.stopping_power, // Handle array or single value
-        alpha: res.alpha,
-        beta: res.beta,
-        lambda: res.lambda,
+          : res.stopping_power
       }));
 
       console.log("Processed Results:", processedResults);
@@ -118,54 +109,6 @@ useEffect(() => {
       console.error("Failed to calculate stopping power:", error);
     }
   };
-
-  // After calibration, test on new materials
-  const handleTestCalibration = async (event) => {
-    setIsLoading(true);
-    const files = event.target.files;
-    const formData = new FormData();
-
-    Array.from(files).forEach((file) => {
-      formData.append("files", file, file.webkitRelativePath);
-    })
-
-    // Ensure calibration params exist
-    if (!calibrationParams.alpha || !calibrationParams.beta || !calibrationParams.lambda) {
-      console.error("Calibration parameters are missing. Please run calculation first.");
-      setUploadStatus("Please run the calculation before testing calibration.");
-      setIsLoading(false);
-      return;
-    }
-
-    // Append calibration params from previous calc
-    formData.append("alpha", calibrationParams.alpha);
-    formData.append("beta", calibrationParams.beta);
-    formData.append("lambda", calibrationParams.lambda);
-    formData.append("method", selectedModel);
-
-for (let pair of formData.entries()) {
-  console.log(pair[0], pair[1]);
-}
-    try {
-      const response = await fetch("http://127.0.0.1:5050/test-calibration", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      setResults(result.new_table);
-      setUploadStatus("Test calibration successful!");
-    } catch (error) {
-      console.error("Test calibration failed:", error);
-      setUploadStatus("Test calibration failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  } 
 
   const handleNextImage = () => {
     setCurrentIndex(
@@ -212,9 +155,6 @@ for (let pair of formData.entries()) {
     }
   };
 
-  const handleBetaChange = (event) => {
-    setBetaValue(event.target.value);
-  };
 
   const handleBack = () => {
     setIsImagesReady(false);
@@ -223,17 +163,25 @@ for (let pair of formData.entries()) {
     setHighImages([]);
     setLowImages([]);
     setSliceThickness(null);
-    setCalibrationParams({ alpha: null, beta: null, lambda: null });
-    setCircleRadius(100)
-    setBetaValue(null)
-    setCalibrationParams({
-        alpha: null,
-        beta: null,
-        lambda: null,
-      });  
+    setCircleRadius(100);
     };
 
+  // Setting user input for parameters
+  const handleHighKVPChange = async (event) => {
+    setHighKVP(event.target.value);
+  };
+
+  const handleLowKVPChange = async (event) => {
+    setLowKVP(event.target.value);
+  };
+
+  const handleSliceThicknessChange = async (event) => {
+    setSliceThickness(event.target.value);
+  }
+
+  // START UI
   return (
+    // Start page
     <Background>
       <Content>
         {isLoading && <LoadingSpinner />}
@@ -262,11 +210,11 @@ for (let pair of formData.entries()) {
             {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
           </>
         )}
+        {/* Tool page */}
         {isImagesReady && results.length === 0 && (
           <>
             <Header>
               <h1>DECT Scan Viewer</h1>
-              <SliceInfo>Slice Thickness: {sliceThickness} mm</SliceInfo>
             </Header>
             <ImageViewer
               highImages={highImages}
@@ -295,7 +243,40 @@ for (let pair of formData.entries()) {
                 onChange={handleRadiusChange}
               />
             </SliderContainer>
-            <SelectContainer>
+            <SliderContainer>
+              <label>High KVP: {highKVP} KVP</label>
+              <RadiusSlider
+                type="range"
+                min="10"
+                max="200"
+                step={10}
+                value={highKVP}
+                onChange={handleHighKVPChange}
+              />
+            </SliderContainer>
+            <SliderContainer>
+              <label>Low KVP: {lowKVP} KVP</label>
+              <RadiusSlider
+                type="range"
+                min="10"
+                max="200"
+                step={10}
+                value={lowKVP}
+                onChange={handleLowKVPChange}
+              />
+            </SliderContainer>
+            <SliderContainer>
+              <label>Slice Thickness : {sliceThickness}mm</label>
+              <RadiusSlider
+                type="range"
+                min="0"
+                max="20"
+                step={0.5}
+                value={sliceThickness}
+                onChange={setSliceThickness}
+              />
+            </SliderContainer>
+            {/* <SelectContainer>
               <label>Select Model:</label>
               <Select
                 value={selectedModel}
@@ -307,42 +288,13 @@ for (let pair of formData.entries()) {
                   </option>
                 ))}
               </Select>
-            </SelectContainer>
-            {selectedModel === "Saito" && (
-              <>
-                <SliderContainer>
-                  <label>Beta Calibration: {betaValue}</label>
-                  <RadiusSlider
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.001"
-                    value={betaValue}
-                    onChange={handleBetaChange}
-                  />
-                </SliderContainer>
-              </>
-            )}
-            {selectedModel === "Hunemohr" && (
-              <>
-                <SliderContainer>
-                  <label>Calibration Parameter: {betaValue}</label>
-                  <RadiusSlider
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.001"
-                    value={betaValue}
-                    onChange={handleBetaChange}
-                  />
-                </SliderContainer>
-              </>
-            )}
+            </SelectContainer> */}
             <CalculateButton onClick={handleCalculate}>
               Calculate Stopping Power
             </CalculateButton>
           </>
         )}
+        {/* Result page */}
         {results.length > 0 && (
           <>
             <BackButton onClick={handleBack}> ← </BackButton>
@@ -377,33 +329,7 @@ for (let pair of formData.entries()) {
                 ))}
               </tbody>
             </ResultsTable>
-            <>
-              <input
-                type="file"
-                id="testFolderInput"
-                webkitdirectory="true"
-                directory="true"
-                style={{ display: "none" }}
-                onChange={handleTestCalibration}
-              />
-              <TestingButton
-                onClick={() => {
-                  if (
-                    !calibrationParams.alpha ||
-                    !calibrationParams.beta ||
-                    !calibrationParams.lambda
-                  ) {
-                    alert(
-                      "Please run the calculation first before testing calibration."
-                    );
-                    return;
-                  }
-                  document.getElementById("testFolderInput").click();
-                }}
-              >
-                Test Calibration 📊
-              </TestingButton>
-            </>{" "}
+            <></>{" "}
           </>
         )}
       </Content>
