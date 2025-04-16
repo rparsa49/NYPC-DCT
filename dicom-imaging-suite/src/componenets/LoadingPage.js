@@ -5,6 +5,7 @@ import { AiOutlineQuestionCircle } from "react-icons/ai";
 import { FaBrain } from "react-icons/fa";
 import ImageViewer from "./ImageViewer";
 import LoadingSpinner from "./LoadingSpinner";
+import { FaHome } from "react-icons/fa";
 
 const LoadingPage = () => {
   const [showHelp, setShowHelp] = useState(false);
@@ -17,25 +18,25 @@ const LoadingPage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [circleRadius, setCircleRadius] = useState(10);
   const [phantomType, setPhantomType] = useState("head");
-  // const [models, setModels] = useState([]);
+  const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [results, setResults] = useState([]);
   const [highKVP, setHighKVP] = useState(0);
   const [lowKVP, setLowKVP] = useState(0);
 
-  //   useEffect(() => {
-  //   fetch("http://127.0.0.1:5050/get-supported-models")
-  //     .then((response) => response.json())
-  //     .then((data) => {
-  //       const modelOptions = Object.entries(data).map(([key, value]) => ({
-  //         name: value.name,
-  //       }));
+  useEffect(() => {
+    fetch("http://127.0.0.1:5050/get-supported-models")
+      .then((response) => response.json())
+      .then((data) => {
+        const modelOptions = Object.entries(data).map(([key, value]) => ({
+          name: value.name,
+        }));
 
-  //       setModels(modelOptions);
-  //       setSelectedModel(modelOptions[0]?.name || "");
-  //     })
-  //     .catch((error) => console.error("Failed to fetch models:", error));
-  // }, []);
+        setModels(modelOptions);
+        setSelectedModel(modelOptions[0]?.name || "");
+      })
+      .catch((error) => console.error("Failed to fetch models:", error));
+  }, []);
 
   const handleFolderChange = async (event) => {
     setIsLoading(true);
@@ -60,12 +61,63 @@ const LoadingPage = () => {
       setUploadStatus("Upload successful!");
       setHighImages(result.high_kvp_images);
       setLowImages(result.low_kvp_images);
+      console.log("High Images: ", result.high_kvp_images);
+      console.log("Low Images: ", result.low_kvp_images);
+
       setIsImagesReady(true);
     } catch (error) {
       console.error("Upload failed:", error);
       setUploadStatus("Upload failed. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const cleanNoise = async () => {
+    try {
+      console.log("Cleaning selected images...");
+
+      const currentHighImage = highImages[currentIndex];
+      const currentLowImage = lowImages[currentIndex];
+
+      if (!currentHighImage || !currentLowImage) {
+        console.error("No valid image pair found at index:", currentIndex);
+        return;
+      }
+
+      const response = await fetch("http://127.0.0.1:5050/clean-noise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          high_kvp_image: currentHighImage,
+          low_kvp_image: currentLowImage,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const cleanResults = await response.json();
+
+      console.log("Images successfully cleaned.");
+
+      // Add a cache-busting timestamp to force reload
+      const timestamp = new Date().getTime();
+      const updatedHighImages = [...highImages];
+      const updatedLowImages = [...lowImages];
+
+      updatedHighImages[currentIndex] = `${cleanResults.high}?t=${timestamp}`;
+      updatedLowImages[currentIndex] = `${cleanResults.low}?t=${timestamp}`;
+
+      setHighImages(updatedHighImages);
+      setLowImages(updatedLowImages);
+
+      // Show popup
+      window.alert("✨ Images have been denoised successfully!");
+    } catch (error) {
+      console.error("Failed to clean images:", error);
+      window.alert("❌ Failed to clean images. Please try again.");
     }
   };
 
@@ -88,6 +140,7 @@ const LoadingPage = () => {
         body: JSON.stringify({
           radius: circleRadius,
           phantom: phantomType,
+          model: selectedModel,
           highKVP: highKVP,
           lowKVP: lowKVP,
           sliceThickness: sliceThickness,
@@ -102,22 +155,112 @@ const LoadingPage = () => {
 
       const analysisResult = await response.json();
 
-      // Log the full analysis result
       console.log("Analysis Result:", analysisResult);
 
-      // Ensure z_eff and stopping_power are correctly formatted
-      const processedResults = analysisResult.results.map((res, index) => ({
-        material: res.material,
-        rho_e: res.rho_e,
-        z_eff: Array.isArray(res.z_eff) ? res.z_eff[index] : res.z_eff, // Handle array or single value
-        stopping_power: Array.isArray(res.stopping_power)
-          ? res.stopping_power[index]
-          : res.stopping_power,
-      }));
+      // Process results properly
+      if (selectedModel == "Tanaka") {
+        const processedResults = analysisResult.results.materials.map(
+          (material, index) => ({
+            material: material,
+            rho_e:
+              analysisResult.results.calculated_rhos[index]?.toFixed(3) ||
+              "N/A",
+            z_eff:
+              analysisResult.results.calculated_z_effs[index]?.toFixed(2) ||
+              "N/A",
+            mean_excitation:
+              analysisResult.results.mean_excitations[index]?.toFixed(2) ||
+              "N/A",
+            stopping_power:
+              analysisResult.results.stopping_power[index]?.toFixed(5) || "N/A",
+            tanaka_stopping_power:
+              analysisResult.results.tanaka_stopping_power[index]?.toFixed(3) ||
+              "N/A",
+          })
+        );
+        processedResults["alpha"] =
+          analysisResult.results.alpha.toFixed(5) || "N/A";
+        processedResults["gamma"] =
+          analysisResult.results.gamma.toFixed(5) || "N/A";
+        processedResults["a"] = analysisResult.results.a.toFixed(5) || "NA";
+        processedResults["b"] = analysisResult.results.b.toFixed(5) || "NA";
+        processedResults["r"] = analysisResult.results.r.toFixed(3) || "NA";
+        processedResults["rho_rmse"] =
+          analysisResult.results.error_metrics.rho.RMSE.toFixed(5) || "NA";
+        processedResults["z_rmse"] =
+          analysisResult.results.error_metrics.z.RMSE.toFixed(5) || "NA";
+        processedResults["rho_r2"] =
+          analysisResult.results.error_metrics.rho.R2.toFixed(5) || "NA";
+        processedResults["z_r2"] =
+          analysisResult.results.error_metrics.z.R2.toFixed(5) || "NA";
 
-      console.log("Processed Results:", processedResults);
+        setResults(processedResults);
+      } else if (selectedModel == "Hunemohr") {
+        const processedResults = analysisResult.results.materials.map(
+          (material, index) => ({
+            material: material,
+            rho_e:
+              analysisResult.results.calculated_rhos[index]?.toFixed(3) ||
+              "N/A",
+            z_eff:
+              analysisResult.results.calculated_z_effs[index]?.toFixed(2) ||
+              "N/A",
+            stopping_power:
+              analysisResult.results.stopping_power[index]?.toFixed(5) || "N/A",
+            rho_rmse:
+              analysisResult.results.error_metrics.rho.RMSE.toFixed(5) || "NA",
+            z_rmse:
+              analysisResult.results.error_metrics.z.RMSE.toFixed(5) || "NA",
+          })
+        );
+        processedResults["rho_rmse"] =
+          analysisResult.results.error_metrics.rho.RMSE.toFixed(5) || "NA";
+        processedResults["z_rmse"] =
+          analysisResult.results.error_metrics.z.RMSE.toFixed(5) || "NA";
+        processedResults["rho_r2"] =
+          analysisResult.results.error_metrics.rho.R2.toFixed(5) || "NA";
+        processedResults["z_r2"] =
+          analysisResult.results.error_metrics.z.R2.toFixed(5) || "NA";
+        processedResults["percent_rho"] =
+          analysisResult.results.error_metrics.rho.PercentError.toFixed(5) ||
+          "NA";
+        processedResults["percent_z"] =
+          analysisResult.results.error_metrics.z.PercentError.toFixed(5) ||
+          "NA";
+        setResults(processedResults);
+      } else if (selectedModel == "Saito") {
+        const processedResults = analysisResult.results.materials.map(
+          (material, index) => ({
+            material: material,
+            rho_e:
+              analysisResult.results.calculated_rhos[index]?.toFixed(3) ||
+              "N/A",
+            z_eff:
+              analysisResult.results.calculated_z_effs[index]?.toFixed(2) ||
+              "N/A",
+            stopping_power:
+              analysisResult.results.stopping_power[index]?.toFixed(5) || "N/A",
+            alpha: analysisResult.results.alpha.toFixed(5) || "N/A",
+          })
+        );
+        processedResults["alpha"] =
+          analysisResult.results.alpha.toFixed(5) || "N/A";
+        processedResults["gamma"] =
+          analysisResult.results.gamma.toFixed(5) || "N/A";
+        processedResults["a"] = analysisResult.results.a.toFixed(5) || "NA";
+        processedResults["b"] = analysisResult.results.b.toFixed(5) || "NA";
+        processedResults["r"] = analysisResult.results.r.toFixed(3) || "NA";
+        processedResults["rho_rmse"] =
+          analysisResult.results.error_metrics.rho.RMSE.toFixed(5) || "NA";
+        processedResults["z_rmse"] =
+          analysisResult.results.error_metrics.z.RMSE.toFixed(5) || "NA";
+        processedResults["rho_r2"] =
+          analysisResult.results.error_metrics.rho.R2.toFixed(5) || "NA";
+        processedResults["z_r2"] =
+          analysisResult.results.error_metrics.z.R2.toFixed(5) || "NA";
 
-      setResults(processedResults);
+        setResults(processedResults);
+      }
     } catch (error) {
       console.error("Failed to calculate stopping power:", error);
     }
@@ -168,14 +311,40 @@ const LoadingPage = () => {
     }
   };
 
-  const handleBack = () => {
-    setIsImagesReady(false);
-    setResults([]);
-    setUploadStatus(null);
-    setHighImages([]);
-    setLowImages([]);
-    setSliceThickness(null);
-    setCircleRadius(100);
+const handleBack = () => {
+  setResults([]); // Clear only the results
+};
+
+  const handleHome = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:5050/reset-processed", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to reset backend folder.");
+      }
+
+      // Clear all relevant state
+      setIsImagesReady(false);
+      setIsLoading(false);
+      setUploadStatus(null);
+      setHighImages([]);
+      setLowImages([]);
+      setResults([]);
+      setCurrentIndex(0);
+      setCircleRadius(10);
+      setPhantomType("head");
+      setSelectedModel(models[0]?.name || "");
+      setSliceThickness(0);
+      setHighKVP(0);
+      setLowKVP(0);
+
+      window.alert("✅ Ready for a new scan!");
+    } catch (error) {
+      console.error("Failed to reset processed images:", error);
+      window.alert("❌ Failed to reset. Please try again.");
+    }
   };
 
   // Setting user input for parameters
@@ -200,8 +369,14 @@ const LoadingPage = () => {
         {!isImagesReady && !isLoading && (
           <>
             <BrainIcon />
-            <Title>DECT Imaging Suite</Title>
+            <Title>SPR-Net</Title>
             <Subtitle>Analyze and process DECT scans with ease</Subtitle>
+            <p>
+              Upload a folder containing a Dual-Energy CT (DECT) scan series in
+              DICOM format. The tool will automatically process and display the
+              corresponding images. Make sure your dataset includes both high
+              and low kVp images.
+            </p>
             <input
               type="file"
               id="folderInput"
@@ -235,6 +410,9 @@ const LoadingPage = () => {
               handleNextImage={handleNextImage}
               handlePreviousImage={handlePreviousImage}
             />
+            <CleanButton onClick={cleanNoise} className="">
+              Clean Noise ✨
+            </CleanButton>
             <SelectContainer>
               <label>Phantom Type:</label>
               <Select
@@ -288,7 +466,7 @@ const LoadingPage = () => {
                 onChange={handleSliceThicknessChange}
               />
             </SliderContainer>
-            {/* <SelectContainer>
+            <SelectContainer>
               <label>Select Model:</label>
               <Select
                 value={selectedModel}
@@ -300,23 +478,30 @@ const LoadingPage = () => {
                   </option>
                 ))}
               </Select>
-            </SelectContainer> */}
+            </SelectContainer>
             <CalculateButton onClick={handleCalculate}>
               Calculate Stopping Power
             </CalculateButton>
           </>
         )}
         {/* Result page */}
-        {results.length > 0 && (
+        {results.length > 0 && selectedModel == "Tanaka" && (
           <>
             <BackButton onClick={handleBack}> ← </BackButton>
+            <BackButton onClick={handleHome} style={{ left: "70px" }}>
+              <FaHome />
+            </BackButton>
             <ResultsTable>
               <thead>
                 <tr>
                   <TableHeader>Insert #</TableHeader>
                   <TableHeader>Material</TableHeader>
-                  <TableHeader>ρ_e</TableHeader>
-                  <TableHeader>Z_eff</TableHeader>
+                  <TableHeader>
+                    ρ<sub>e</sub>
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub>
+                  </TableHeader>
                   <TableHeader>Stopping Power Ratio</TableHeader>
                 </tr>
               </thead>
@@ -325,23 +510,196 @@ const LoadingPage = () => {
                   <tr key={index}>
                     <TableCell>{index + 1}</TableCell>
                     <TableCell>{result.material}</TableCell>
-                    <TableCell>{result.rho_e.toFixed(2)}</TableCell>
-                    <TableCell>
-                      {typeof result.z_eff === "number" && !isNaN(result.z_eff)
-                        ? result.z_eff.toFixed(2)
-                        : "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      {typeof result.stopping_power === "number" &&
-                      !isNaN(result.stopping_power)
-                        ? result.stopping_power.toFixed(5)
-                        : "N/A"}
-                    </TableCell>
+                    <TableCell>{result.rho_e}</TableCell>
+                    <TableCell>{result.z_eff}</TableCell>
+                    <TableCell>{result.stopping_power}</TableCell>
                   </tr>
                 ))}
               </tbody>
             </ResultsTable>
-            <></>{" "}
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>α</TableHeader>
+                  <TableHeader>a</TableHeader>
+                  <TableHeader>b</TableHeader>
+                  <TableHeader>γ</TableHeader>
+                  <TableHeader>
+                    R<sup>2</sup>
+                  </TableHeader>
+                </tr>
+              </thead>
+              <tbody>
+                <TableCell>{results.alpha}</TableCell>
+                <TableCell>{results.a}</TableCell>
+                <TableCell>{results.b}</TableCell>
+                <TableCell>{results.gamma}</TableCell>
+                <TableCell>{results.r}</TableCell>
+              </tbody>
+            </ResultsTable>
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>
+                    ρ<sub>e</sub> RMSE
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub> RMSE
+                  </TableHeader>
+                  <TableHeader>
+                    ρ<sub>e</sub> R<sup>2</sup>
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub> R<sup>2</sup>
+                  </TableHeader>
+                </tr>
+              </thead>
+              <tbody>
+                <TableCell>{results.rho_rmse}</TableCell>
+                <TableCell>{results.z_rmse}</TableCell>
+                <TableCell>{results.rho_r2}</TableCell>
+                <TableCell>{results.z_r2}</TableCell>
+              </tbody>
+            </ResultsTable>
+            <></>
+          </>
+        )}
+        {results.length > 0 && selectedModel == "Saito" && (
+          <>
+            <BackButton onClick={handleBack}> ← </BackButton>
+            <BackButton onClick={handleHome} style={{ left: "70px" }}>
+              <FaHome />
+            </BackButton>
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>Insert #</TableHeader>
+                  <TableHeader>Material</TableHeader>
+                  <TableHeader>
+                    ρ<sub>e</sub>
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub>
+                  </TableHeader>
+                  <TableHeader>Stopping Power Ratio</TableHeader>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((result, index) => (
+                  <tr key={index}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{result.material}</TableCell>
+                    <TableCell>{result.rho_e}</TableCell>
+                    <TableCell>{result.z_eff}</TableCell>
+                    <TableCell>{result.stopping_power}</TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </ResultsTable>
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>α</TableHeader>
+                  <TableHeader>a</TableHeader>
+                  <TableHeader>b</TableHeader>
+                  <TableHeader>γ</TableHeader>
+                  <TableHeader>
+                    R<sup>2</sup>
+                  </TableHeader>
+                </tr>
+              </thead>
+              <tbody>
+                <TableCell>{results.alpha}</TableCell>
+                <TableCell>{results.a}</TableCell>
+                <TableCell>{results.b}</TableCell>
+                <TableCell>{results.gamma}</TableCell>
+                <TableCell>{results.r}</TableCell>
+              </tbody>
+            </ResultsTable>
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>
+                    ρ<sub>e</sub> RMSE
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub> RMSE
+                  </TableHeader>
+                  <TableHeader>
+                    ρ<sub>e</sub> R<sup>2</sup>
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub> R<sup>2</sup>
+                  </TableHeader>
+                </tr>
+              </thead>
+              <tbody>
+                <TableCell>{results.rho_rmse}</TableCell>
+                <TableCell>{results.z_rmse}</TableCell>
+                <TableCell>{results.rho_r2}</TableCell>
+                <TableCell>{results.z_r2}</TableCell>
+              </tbody>
+            </ResultsTable>
+            <></>
+          </>
+        )}
+        {results.length > 0 && selectedModel == "Hunemohr" && (
+          <>
+            <BackButton onClick={handleBack}> ← </BackButton>
+            <BackButton onClick={handleHome} style={{ left: "70px" }}>
+              <FaHome />
+            </BackButton>
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>Insert #</TableHeader>
+                  <TableHeader>Material</TableHeader>
+                  <TableHeader>
+                    ρ<sub>e</sub>
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub>
+                  </TableHeader>
+                  <TableHeader>Stopping Power Ratio</TableHeader>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((result, index) => (
+                  <tr key={index}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{result.material}</TableCell>
+                    <TableCell>{result.rho_e}</TableCell>
+                    <TableCell>{result.z_eff}</TableCell>
+                    <TableCell>{result.stopping_power}</TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </ResultsTable>
+            <ResultsTable>
+              <thead>
+                <tr>
+                  <TableHeader>
+                    ρ<sub>e</sub> RMSE
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub> RMSE
+                  </TableHeader>
+                  <TableHeader>
+                    ρ<sub>e</sub> R<sup>2</sup>
+                  </TableHeader>
+                  <TableHeader>
+                    Z<sub>eff</sub> R<sup>2</sup>
+                  </TableHeader>
+                </tr>
+              </thead>
+              <tbody>
+                <TableCell>{results.rho_rmse}</TableCell>
+                <TableCell>{results.z_rmse}</TableCell>
+                <TableCell>{results.rho_r2}</TableCell>
+                <TableCell>{results.z_r2}</TableCell>
+              </tbody>
+            </ResultsTable>
+            <></>
           </>
         )}
       </Content>
@@ -450,12 +808,6 @@ const Header = styled.div`
   margin-bottom: 20px;
 `;
 
-const SliceInfo = styled.p`
-  color: #ff6bcb;
-  font-size: 18px;
-  margin-top: 10px;
-`;
-
 const BackButton = styled.button`
   position: absolute;
   top: 10px;
@@ -522,6 +874,25 @@ const CalculateButton = styled.button`
     box-shadow: 0px 12px 20px rgba(255, 107, 203, 0.6);
   }
 `;
+
+const CleanButton = styled.button`
+  background: #6bbaff;
+  color: white;
+  padding: 15px 25px;
+  margin-top: 15px;
+  font-size: 16px;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0px 8px 15px rgba(107, 154, 255, 0.4);
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0px 12px 20px rgba(107, 154, 255, 0.6);
+  }
+`;
+
 const ResultsTable = styled.table`
   width: 100%;
   margin-top: 20px;
@@ -541,24 +912,6 @@ const TableCell = styled.td`
   padding: 10px;
   border-top: 1px solid #ff6bcb;
   text-align: center;
-`;
-
-const TestingButton = styled.button`
-  background: #6bcbff;
-  color: white;
-  padding: 15px 25px;
-  font-size: 16px;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
-  margin-top: 20px;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0px 8px 15px rgba(107, 203, 255, 0.4);
-
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0px 12px 20px rgba(107, 203, 255, 0.6);
-  }
 `;
 
 const Footer = styled.footer`
