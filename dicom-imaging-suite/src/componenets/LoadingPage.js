@@ -23,6 +23,10 @@ const LoadingPage = () => {
   const [results, setResults] = useState([]);
   const [highKVP, setHighKVP] = useState(0);
   const [lowKVP, setLowKVP] = useState(0);
+  const [comparisonResults, setComparisonResults] = useState([]);
+  const [comparisonModel, setComparisonModel] = useState("");
+  const [comparisonRadius, setComparisonRadius] = useState(circleRadius);
+  const [showCompareMenu, setShowCompareMenu] = useState(false);
 
   useEffect(() => {
     fetch("http://127.0.0.1:5050/get-supported-models")
@@ -311,9 +315,9 @@ const LoadingPage = () => {
     }
   };
 
-const handleBack = () => {
-  setResults([]); // Clear only the results
-};
+  const handleBack = () => {
+    setResults([]); // Clear only the results
+  };
 
   const handleHome = async () => {
     try {
@@ -344,6 +348,50 @@ const handleBack = () => {
     } catch (error) {
       console.error("Failed to reset processed images:", error);
       window.alert("❌ Failed to reset. Please try again.");
+    }
+  };
+
+  // API to compare results
+  const handleCompare = async () => {
+    const currentHighImage = highImages[currentIndex];
+    const currentLowImage = lowImages[currentIndex];
+
+    if (!currentHighImage || !currentLowImage) {
+      console.error("No valid image pair found.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://127.0.0.1:5050/analyze-inserts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          radius: comparisonRadius,
+          phantom: phantomType,
+          model: comparisonModel,
+          highKVP: highKVP,
+          lowKVP: lowKVP,
+          sliceThickness: sliceThickness,
+          high_kvp_image: currentHighImage,
+          low_kvp_image: currentLowImage,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+      const data = await response.json();
+
+      const processed = data.results.materials.map((material, index) => ({
+        material,
+        rho_e: data.results.calculated_rhos[index]?.toFixed(3) || "N/A",
+        z_eff: data.results.calculated_z_effs[index]?.toFixed(2) || "N/A",
+        stopping_power: data.results.stopping_power[index]?.toFixed(5) || "N/A",
+      }));
+
+      setComparisonResults(processed);
+    } catch (err) {
+      console.error("Comparison analysis failed:", err);
+      alert("Comparison run failed.");
     }
   };
 
@@ -702,6 +750,79 @@ const handleBack = () => {
             <></>
           </>
         )}
+        {results.length > 0 && (
+          <>
+            <ToggleCompareButton
+              onClick={() => setShowCompareMenu(!showCompareMenu)}
+            >
+              {showCompareMenu
+                ? "Cancel Comparison"
+                : "🔍 Compare with Another Model"}
+            </ToggleCompareButton>
+          </>
+        )}
+        {showCompareMenu && (
+          <AnimatedCompareMenu>
+            <h3 style={{ color: "#ff6bcb" }}>Run Comparison</h3>
+            <SelectContainer>
+              <label>Choose Another Model:</label>
+              <Select
+                value={comparisonModel}
+                onChange={(e) => setComparisonModel(e.target.value)}
+              >
+                {models.map((model) => (
+                  <option key={model.name} value={model.name}>
+                    {model.name}
+                  </option>
+                ))}
+              </Select>
+            </SelectContainer>
+
+            <SliderContainer>
+              <label>Comparison Radius: {comparisonRadius}px</label>
+              <RadiusSlider
+                type="range"
+                min="1"
+                max="100"
+                value={comparisonRadius}
+                onChange={(e) => setComparisonRadius(e.target.value)}
+              />
+            </SliderContainer>
+
+            <CalculateButton onClick={handleCompare}>
+              Run Comparison
+            </CalculateButton>
+          </AnimatedCompareMenu>
+        )}
+        {comparisonResults.length > 0 && (
+          <ScrollableResults>
+            <ResultsBlock>
+              <h4>Comparison ({comparisonModel})</h4>
+              <ResultsTable>
+                <thead>
+                  <tr>
+                    <TableHeader>Insert #</TableHeader>
+                    <TableHeader>Material</TableHeader>
+                    <TableHeader>ρₑ</TableHeader>
+                    <TableHeader>Zₑ𝑓𝑓</TableHeader>
+                    <TableHeader>Stopping Power Ratio</TableHeader>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisonResults.map((result, index) => (
+                    <tr key={`cmp-${index}`}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>{result.material}</TableCell>
+                      <TableCell>{result.rho_e}</TableCell>
+                      <TableCell>{result.z_eff}</TableCell>
+                      <TableCell>{result.stopping_power}</TableCell>
+                    </tr>
+                  ))}
+                </tbody>
+              </ResultsTable>
+            </ResultsBlock>
+          </ScrollableResults>
+        )}
       </Content>
       <Footer>
         <FooterText>© 2025 DECT Imaging Suite. All rights reserved.</FooterText>
@@ -930,4 +1051,58 @@ const Footer = styled.footer`
 
 const FooterText = styled.p`
   margin: 0;
+`;
+
+const ToggleCompareButton = styled.button`
+  margin-top: 20px;
+  background: #ffb347;
+  color: #1f2a48;
+  padding: 10px 20px;
+  font-size: 15px;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #ffa500;
+  }
+`;
+
+const AnimatedCompareMenu = styled.div`
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid #ff6bcb;
+  border-radius: 15px;
+  animation: fadeIn 0.3s ease-in-out;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+`;
+
+const ScrollableResults = styled.div`
+  display: flex;
+  overflow-x: auto;
+  gap: 30px;
+  margin-top: 40px;
+  padding-bottom: 20px;
+`;
+
+const ResultsBlock = styled.div`
+  min-width: 500px;
+  background-color: #2e3d66;
+  padding: 20px;
+  border-radius: 10px;
 `;
