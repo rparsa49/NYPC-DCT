@@ -408,6 +408,42 @@ const LoadingPage = () => {
     setSliceThickness(event.target.value);
   };
 
+  // Download results
+  const downloadResultsAsCSV = () => {
+    if (results.length === 0) return;
+
+    // Use model names in the headers
+    const mainLabel = selectedModel || "Main";
+    const compareLabel = comparisonModel || "Compare";
+
+    let csvContent = `Insert #,Material,ρₑ (${mainLabel}),Zₑ𝑓𝑓 (${mainLabel}),SPR (${mainLabel}),ρₑ (${compareLabel}),Zₑ𝑓𝑓 (${compareLabel}),SPR (${compareLabel})\n`;
+
+    const length = Math.max(results.length, comparisonResults.length);
+
+    for (let i = 0; i < length; i++) {
+      const main = results[i] || {};
+      const cmp = comparisonResults[i] || {};
+      csvContent += `${i + 1},${main.material || cmp.material || "N/A"},${
+        main.rho_e || "N/A"
+      },${main.z_eff || "N/A"},${main.stopping_power || "N/A"},${
+        cmp.rho_e || "N/A"
+      },${cmp.z_eff || "N/A"},${cmp.stopping_power || "N/A"}\n`;
+    }
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `DECT_Comparison_${mainLabel}_vs_${compareLabel}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // START UI
   return (
     // Start page
@@ -539,6 +575,12 @@ const LoadingPage = () => {
             <BackButton onClick={handleHome} style={{ left: "70px" }}>
               <FaHome />
             </BackButton>
+            <BackButton
+              onClick={downloadResultsAsCSV}
+              style={{ left: "520px" }}
+            >
+              💾
+            </BackButton>
             <ResultsTable>
               <thead>
                 <tr>
@@ -618,6 +660,12 @@ const LoadingPage = () => {
             <BackButton onClick={handleHome} style={{ left: "70px" }}>
               <FaHome />
             </BackButton>
+            <BackButton
+              onClick={downloadResultsAsCSV}
+              style={{ left: "520px" }}
+            >
+              💾
+            </BackButton>
             <ResultsTable>
               <thead>
                 <tr>
@@ -696,6 +744,12 @@ const LoadingPage = () => {
             <BackButton onClick={handleBack}> ← </BackButton>
             <BackButton onClick={handleHome} style={{ left: "70px" }}>
               <FaHome />
+            </BackButton>
+            <BackButton
+              onClick={downloadResultsAsCSV}
+              style={{ left: "520px" }}
+            >
+              💾
             </BackButton>
             <ResultsTable>
               <thead>
