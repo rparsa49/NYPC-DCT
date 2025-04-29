@@ -7,6 +7,9 @@ import ImageViewer from "./ImageViewer";
 import LoadingSpinner from "./LoadingSpinner";
 import { FaHome } from "react-icons/fa";
 
+// TODO: THE RESULTS TABLE DOESNT CLEAR WHEN THE USER RETURNS HOME, FIX THIS.
+// TODO: ALSO ADD THE ORIGINAL RESULTS TABLE INTO A SCROLLABLE FORMAT
+
 const LoadingPage = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
