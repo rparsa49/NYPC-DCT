@@ -1,0 +1,3 @@
+[submodule "dicom-imaging-suite/dect-scan-fast-api"]
+	path = dicom-imaging-suite/dect-scan-fast-api
+	url = https://github.com/rparsa49/dect-scan-fast-api.git
