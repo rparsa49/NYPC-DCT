@@ -13,7 +13,11 @@ npm -v
 ```
 git clone https://github.com/rparsa49/NYPC-DCT.git
 ```
-5. Open the folder in Visual Studio Code, then proceed to the next section.
+5. Clone the repository with submodules:
+```
+git clone --recurse-submodules https://github.com/rparsa49/NYPC-DCT.git
+```
+6. Open the folder in Visual Studio Code, then proceed to the next section.
 
 ### Backend
 1. Install Python from [here](https://www.python.org/downloads/release/python-3114/) (Make sure it is version 3.11.4)
