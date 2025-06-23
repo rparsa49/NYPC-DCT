@@ -7,14 +7,13 @@ import ImageViewer from "./ImageViewer";
 import LoadingSpinner from "./LoadingSpinner";
 import { FaHome } from "react-icons/fa";
 
-// TODO: THE RESULTS TABLE DOESNT CLEAR WHEN THE USER RETURNS HOME, FIX THIS.
-// TODO: ALSO ADD THE ORIGINAL RESULTS TABLE INTO A SCROLLABLE FORMAT
-
 const LoadingPage = () => {
   const [showHelp, setShowHelp] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
   const [isImagesReady, setIsImagesReady] = useState(false);
+  const [showCompareResults, setShowCompareResults] = useState(false);
   const [highImages, setHighImages] = useState([]);
   const [lowImages, setLowImages] = useState([]);
   const [sliceThickness, setSliceThickness] = useState(0);
@@ -320,6 +319,7 @@ const LoadingPage = () => {
 
   const handleBack = () => {
     setResults([]); // Clear only the results
+    setIsComparing(false);
   };
 
   const handleHome = async () => {
@@ -334,8 +334,11 @@ const LoadingPage = () => {
 
       // Clear all relevant state
       setIsImagesReady(false);
+      setIsComparing(false);
+      setShowCompareResults(false);
       setIsLoading(false);
       setUploadStatus(null);
+      setShowCompareMenu(false);
       setHighImages([]);
       setLowImages([]);
       setResults([]);
@@ -356,6 +359,7 @@ const LoadingPage = () => {
 
   // API to compare results
   const handleCompare = async () => {
+    setIsComparing(true);
     const currentHighImage = highImages[currentIndex];
     const currentLowImage = lowImages[currentIndex];
 
@@ -810,7 +814,10 @@ const LoadingPage = () => {
         {results.length > 0 && (
           <>
             <ToggleCompareButton
-              onClick={() => setShowCompareMenu(!showCompareMenu)}
+              onClick={() => {
+                setShowCompareMenu(!showCompareMenu)
+                setShowCompareResults(!showCompareResults)
+              }}
             >
               {showCompareMenu
                 ? "Cancel Comparison"
@@ -851,7 +858,7 @@ const LoadingPage = () => {
             </CalculateButton>
           </AnimatedCompareMenu>
         )}
-        {comparisonResults.length > 0 && (
+        {comparisonResults.length > 0 && showCompareResults &&(
           <ScrollableResults>
             <ResultsBlock>
               <h4>Comparison ({comparisonModel})</h4>
