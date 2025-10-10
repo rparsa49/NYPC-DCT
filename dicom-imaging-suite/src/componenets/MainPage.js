@@ -1,18 +1,14 @@
 // LoadingPage.js
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
-import HelpModal from "./HelpModal";
-import { AiOutlineQuestionCircle } from "react-icons/ai";
-import { FaBrain } from "react-icons/fa";
-import ImageViewer from "./ImageViewer";
 import LoadingSpinner from "./LoadingSpinner";
-import { FaHome } from "react-icons/fa";
 
 // New modular components
 import UploadSection from "./UploadSection";
 import ViewerSection from "./ViewerSection";
 import ResultsSection from "./ResultsSection";
-import TestSection from "./TestSection"; // New import
+import TestSection from "./TestSection"; 
+import TestResultsSection from "./TestResultsSection";
 
 const MainPage = () => {
   const [showHelp, setShowHelp] = useState(false);
@@ -38,6 +34,7 @@ const MainPage = () => {
   const [showCompareMenu, setShowCompareMenu] = useState(false);
   const [isTestMode, setIsTestMode] = useState(false); // New state variable
   const [calibrationFile, setCalibrationFile] = useState(null); // New state variable
+  const [isTestResults, setIsTestResults] = useState(false);
 
   useEffect(() => {
     fetch("http://127.0.0.1:5050/get-supported-models")
@@ -86,40 +83,53 @@ const MainPage = () => {
     }
   };
 
-  const handleTestUpload = async (dicomFiles, calibrationFile) => {
-    setIsLoading(true);
-    const formData = new FormData();
+ const handleTestUpload = async (dicomFiles, calibrationFile) => {
+   setIsLoading(true);
+   const formData = new FormData();
 
-    Array.from(dicomFiles).forEach((file) => {
-      formData.append("dicom_files", file, file.webkitRelativePath);
-    });
-    formData.append("calibration_file", calibrationFile);
+   Array.from(dicomFiles).forEach((file) => {
+     formData.append("files", file, file.webkitRelativePath);
+   });
+   formData.append("calibration_file", calibrationFile);
 
-    try {
-      const response = await fetch("http://127.0.0.1:5050/test-calibration", {
-        method: "POST",
-        body: formData,
-      });
+   try {
+     const response = await fetch("http://127.0.0.1:5050/test-calibration", {
+       method: "POST",
+       body: formData,
+     });
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
+     if (!response.ok) {
+       throw new Error(`Server error: ${response.status}`);
+     }
 
-      const result = await response.json();
-      setUploadStatus("Test successful!");
-      setHighImages(result.high_kvp_images);
-      setLowImages(result.low_kvp_images);
-      setResults(result.analysis_results);
-      setSelectedModel(result.model);
-      setIsImagesReady(true);
-      setIsTestMode(false); // Go to results view after test
-    } catch (error) {
-      console.error("Test failed:", error);
-      setUploadStatus("Test failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+     const result = await response.json();
+     setUploadStatus("Test successful!");
+
+     const analysisResult = result.analysis_results;
+
+     const processedResults = analysisResult.materials.map(
+       (material, index) => ({
+         material: material,
+         rho_e: analysisResult.calculated_rhos[index]?.toFixed(3) || "N/A",
+         z_eff: analysisResult.calculated_z_effs[index]?.toFixed(2) || "N/A",
+         stopping_power:
+           analysisResult.stopping_power[index]?.toFixed(5) || "N/A",
+       })
+     );
+
+     setResults(processedResults);
+     setSelectedModel(result.model);
+
+     setIsTestResults(true);
+     setIsTestMode(false);
+     setIsImagesReady(false);
+   } catch (error) {
+     console.error("Test failed:", error);
+     setUploadStatus("Test failed. Please try again.");
+   } finally {
+     setIsLoading(false);
+   }
+ };
 
   const cleanNoise = async () => {
     try {
@@ -483,6 +493,29 @@ const MainPage = () => {
   const renderContent = () => {
     if (isLoading) {
       return <LoadingSpinner />;
+    }
+
+    if (isTestResults) {
+      return (
+        <TestResultsSection
+          results={results}
+          selectedModel={selectedModel}
+          comparisonResults={comparisonResults}
+          comparisonModel={comparisonModel}
+          showCompareMenu={showCompareMenu}
+          setShowCompareMenu={setShowCompareMenu}
+          setShowCompareResults={setShowCompareResults}
+          handleBack={handleBack}
+          handleHome={handleHome}
+          downloadResultsAsCSV={downloadResultsAsCSV}
+          models={models}
+          setComparisonModel={setComparisonModel}
+          comparisonRadius={comparisonRadius}
+          setComparisonRadius={setComparisonRadius}
+          handleCompare={handleCompare}
+          showCompareResults={showCompareResults}
+        />
+      );
     }
 
     if (results.length > 0) {
