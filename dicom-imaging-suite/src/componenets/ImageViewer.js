@@ -1,35 +1,62 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 
-const ImageViewer = ({ highImages, lowImages }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const totalImages = Math.min(highImages.length, lowImages.length);
+const ImageViewer = ({
+  highImages,
+  lowImages,
+  currentIndex: propIndex,
+  handleNextImage,
+  handlePreviousImage,
+}) => {
+  // Use props for index/handlers if provided (controlled mode), otherwise use local state
+  const [localIndex, setLocalIndex] = useState(0);
+
+  const isControlled = propIndex !== undefined;
+  const currentIndex = isControlled ? propIndex : localIndex;
+
+  // For SECT, lowImages might be empty. Total is based on High images.
+  const totalImages = highImages ? highImages.length : 0;
+  const isSECT = !lowImages || lowImages.length === 0;
 
   // Adjust the base URL to include the processed_images directory
   const baseURL = "http://127.0.0.1:5050";
 
-  const handleNext = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % totalImages);
+  const onNext = () => {
+    if (isControlled && handleNextImage) {
+      handleNextImage();
+    } else {
+      setLocalIndex((prev) => (prev + 1) % totalImages);
+    }
   };
 
-  const handlePrevious = () => {
-    setCurrentIndex((prevIndex) =>
-      prevIndex === 0 ? totalImages - 1 : prevIndex - 1
-    );
+  const onPrev = () => {
+    if (isControlled && handlePreviousImage) {
+      handlePreviousImage();
+    } else {
+      setLocalIndex((prev) => (prev === 0 ? totalImages - 1 : prev - 1));
+    }
   };
 
   if (totalImages === 0) {
     return <p>No images available.</p>;
   }
 
+  // Safety check to prevent crash if index is out of bounds during switch
+  if (currentIndex >= totalImages) {
+    return <p>Loading...</p>;
+  }
+
   return (
     <ViewerContainer>
-      <Button onClick={handlePrevious}>◀</Button>
+      <Button onClick={onPrev}>◀</Button>
       <ImageContainer>
-        <Image src={`${baseURL}${highImages[currentIndex]}`} alt="High kVp" />
-        <Image src={`${baseURL}${lowImages[currentIndex]}`} alt="Low kVp" />
+          <Image src={`${baseURL}${highImages[currentIndex]}`} alt="High kVp" />
+
+        {!isSECT && (
+            <Image src={`${baseURL}${lowImages[currentIndex]}`} alt="Low kVp" />
+        )}
       </ImageContainer>
-      <Button onClick={handleNext}>▶</Button>
+      <Button onClick={onNext}>▶</Button>
       <Counter>
         {currentIndex + 1} / {totalImages}
       </Counter>

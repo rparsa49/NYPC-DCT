@@ -7,7 +7,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import UploadSection from "./UploadSection";
 import ViewerSection from "./ViewerSection";
 import ResultsSection from "./ResultsSection";
-import TestSection from "./TestSection"; 
+import TestSection from "./TestSection";
 import TestResultsSection from "./TestResultsSection";
 
 const MainPage = () => {
@@ -32,9 +32,15 @@ const MainPage = () => {
   const [comparisonModel, setComparisonModel] = useState("");
   const [comparisonRadius, setComparisonRadius] = useState(circleRadius);
   const [showCompareMenu, setShowCompareMenu] = useState(false);
-  const [isTestMode, setIsTestMode] = useState(false); // New state variable
-  const [calibrationFile, setCalibrationFile] = useState(null); // New state variable
+  const [isTestMode, setIsTestMode] = useState(false);
+  const [calibrationFile, setCalibrationFile] = useState(null);
   const [isTestResults, setIsTestResults] = useState(false);
+  const [sprMapUrl, setSprMapUrl] = useState(null);
+  // NEW: State to track if scan is Single Energy
+  const [isSECT, setIsSECT] = useState(false);
+
+  const toSection = (p) =>
+    p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : "Head";
 
   useEffect(() => {
     fetch("http://127.0.0.1:5050/get-supported-models")
@@ -71,8 +77,36 @@ const MainPage = () => {
 
       const result = await response.json();
       setUploadStatus("Upload successful!");
-      setHighImages(result.high_kvp_images);
-      setLowImages(result.low_kvp_images);
+
+      const newHighImages = result.high_kvp_images;
+      const newLowImages = result.low_kvp_images;
+
+      // Use the explicit flag from backend if available, or fallback to checking length
+      const isSingleEnergy =
+        result.is_sect !== undefined
+          ? result.is_sect
+          : !newLowImages || newLowImages.length === 0;
+
+      setHighImages(newHighImages);
+      setLowImages(newLowImages || []); // Ensure it's at least an empty array
+      setIsSECT(isSingleEnergy);
+
+      // --- Smart Model Selection ---
+      if (isSingleEnergy) {
+        // Force selection to Schneider for SECT
+        const schneider = models.find((m) => m.name === "Schneider");
+        if (schneider) {
+          setSelectedModel("Schneider");
+        } else {
+          // Fallback if model list hasn't loaded yet or name mismatch
+          setSelectedModel("Schneider");
+        }
+      } else {
+        // For DECT, default to first available if current selection is invalid
+        if (models.length > 0 && selectedModel === "") {
+          setSelectedModel(models[0].name);
+        }
+      }
 
       setIsImagesReady(true);
     } catch (error) {
@@ -83,55 +117,72 @@ const MainPage = () => {
     }
   };
 
- const handleTestUpload = async (dicomFiles, calibrationFile) => {
-   setIsLoading(true);
-   const formData = new FormData();
+  const handleTestUpload = async (dicomFiles, calibrationFile) => {
+    setIsLoading(true);
+    const formData = new FormData();
 
-   Array.from(dicomFiles).forEach((file) => {
-     formData.append("files", file, file.webkitRelativePath);
-   });
-   formData.append("calibration_file", calibrationFile);
+    Array.from(dicomFiles).forEach((file) => {
+      formData.append("files", file, file.webkitRelativePath);
+    });
+    formData.append("calibration_file", calibrationFile);
 
-   try {
-     const response = await fetch("http://127.0.0.1:5050/test-calibration", {
-       method: "POST",
-       body: formData,
-     });
+    try {
+      const response = await fetch("http://127.0.0.1:5050/test-calibration", {
+        method: "POST",
+        body: formData,
+      });
 
-     if (!response.ok) {
-       throw new Error(`Server error: ${response.status}`);
-     }
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
 
-     const result = await response.json();
-     setUploadStatus("Test successful!");
+      const result = await response.json();
+      setUploadStatus("Test successful!");
 
-     const analysisResult = result.analysis_results;
+      const analysisResult = result.analysis_results;
+      let processedResults = [];
 
-     const processedResults = analysisResult.materials.map(
-       (material, index) => ({
-         material: material,
-         rho_e: analysisResult.calculated_rhos[index]?.toFixed(3) || "N/A",
-         z_eff: analysisResult.calculated_z_effs[index]?.toFixed(2) || "N/A",
-         stopping_power:
-           analysisResult.stopping_power[index]?.toFixed(5) || "N/A",
-       })
-     );
+      // Handle Schneider (Object/Dict return) vs DECT (Array return)
+      if (result.model === "Schneider") {
+        // Schneider returns { materials: { "MatA": { ...data... } } }
+        processedResults = Object.entries(analysisResult.materials).map(
+          ([materialName, data]) => ({
+            material: materialName,
+            rho_e: data.predicted_rho?.toFixed(3) || "N/A",
+            z_eff: "N/A", // Schneider doesn't calculate Z_eff directly
+            stopping_power: data.predicted_spr?.toFixed(5) || "N/A",
+          })
+        );
+      } else {
+        // Existing DECT models return { materials: [...], calculated_rhos: [...] }
+        processedResults = analysisResult.materials.map((material, index) => ({
+          material: material,
+          rho_e: analysisResult.calculated_rhos[index]?.toFixed(3) || "N/A",
+          z_eff: analysisResult.calculated_z_effs[index]?.toFixed(2) || "N/A",
+          stopping_power:
+            analysisResult.stopping_power[index]?.toFixed(5) || "N/A",
+        }));
+      }
 
-     setResults(processedResults);
-     setSelectedModel(result.model);
+      setResults(processedResults);
+      setSelectedModel(result.model);
 
-     setIsTestResults(true);
-     setIsTestMode(false);
-     setIsImagesReady(false);
-   } catch (error) {
-     console.error("Test failed:", error);
-     setUploadStatus("Test failed. Please try again.");
-   } finally {
-     setIsLoading(false);
-   }
- };
+      setIsTestResults(true);
+      setIsTestMode(false);
+      setIsImagesReady(false);
+    } catch (error) {
+      console.error("Test failed:", error);
+      setUploadStatus("Test failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const cleanNoise = async () => {
+    if (isSECT) {
+      window.alert("Noise cleaning requires Dual Energy (High/Low) images.");
+      return;
+    }
     try {
       console.log("Cleaning selected images...");
 
@@ -178,10 +229,11 @@ const MainPage = () => {
   const handleCalculate = async () => {
     try {
       const currentHighImage = highImages[currentIndex];
-      const currentLowImage = lowImages[currentIndex];
+      // For SECT, lowImage might be undefined, which is fine for Schneider
+      const currentLowImage = lowImages[currentIndex] || "";
 
-      if (!currentHighImage || !currentLowImage) {
-        console.error("No valid image pair found at index:", currentIndex);
+      if (!currentHighImage) {
+        console.error("No valid image found at index:", currentIndex);
         return;
       }
 
@@ -205,6 +257,29 @@ const MainPage = () => {
       }
 
       const analysisResult = await response.json();
+
+      // Handle Schneider Calibration File Download
+      if (selectedModel === "Schneider") {
+        // Create downloadable JSON blob
+        const blob = new Blob([JSON.stringify(analysisResult, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `schneider_calibration_${new Date()
+          .toISOString()
+          .slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        window.alert(
+          "✅ Calibration complete! A configuration file has been downloaded.\n\n" +
+            "Use this file in 'Test Mode' to analyze unknown scans."
+        );
+        return; // Stop here, do not try to render results table
+      }
 
       if (selectedModel == "Tanaka") {
         const processedResults = analysisResult.results.materials.map(
@@ -308,6 +383,42 @@ const MainPage = () => {
           analysisResult.results.error_metrics.z.R2.toFixed(5) || "NA";
 
         setResults(processedResults);
+
+        // 3) Build {material: SPR} for the map from processedResults
+        const sprValues = {};
+        for (const row of processedResults) {
+          if (
+            row?.material &&
+            row?.stopping_power &&
+            row.stopping_power !== "N/A"
+          ) {
+            const v = Number(row.stopping_power);
+            if (!Number.isNaN(v)) sprValues[row.material] = v;
+          }
+        }
+        if (sprValues.Background === undefined) {
+          sprValues.Background = 0.86; // your default phantom matrix SPR
+        }
+
+        // 4) Call /make-spr-map once
+        const which = "high"; // or "low"
+        const imageUrlForMap =
+          which === "high" ? currentHighImage : currentLowImage;
+
+        const resp = await fetch("http://127.0.0.1:5050/make-spr-map", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phantom: phantomType,
+            which,
+            image_url: imageUrlForMap,
+            spr_values: sprValues,
+            phantom_material: "Background",
+          }),
+        });
+        if (!resp.ok) throw new Error(`SPR map error: ${resp.status}`);
+        const mapData = await resp.json();
+        setSprMapUrl(`http://127.0.0.1:5050${mapData.spr_map}?t=${Date.now()}`);
       }
     } catch (error) {
       console.error("Failed to calculate stopping power:", error);
@@ -315,17 +426,19 @@ const MainPage = () => {
   };
 
   const handleNextImage = () => {
-    setCurrentIndex(
-      (prevIndex) =>
-        (prevIndex + 1) % Math.min(highImages.length, lowImages.length)
-    );
+    // Determine max index based on availability
+    const count = isSECT
+      ? highImages.length
+      : Math.min(highImages.length, lowImages.length);
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % count);
   };
 
   const handlePreviousImage = () => {
+    const count = isSECT
+      ? highImages.length
+      : Math.min(highImages.length, lowImages.length);
     setCurrentIndex((prevIndex) =>
-      prevIndex === 0
-        ? Math.min(highImages.length, lowImages.length) - 1
-        : prevIndex - 1
+      prevIndex === 0 ? count - 1 : prevIndex - 1
     );
   };
 
@@ -353,7 +466,9 @@ const MainPage = () => {
 
       const result = await response.json();
       setHighImages(result.updated_high_kvp_images);
-      setLowImages(result.updated_low_kvp_images);
+      if (result.updated_low_kvp_images) {
+        setLowImages(result.updated_low_kvp_images);
+      }
     } catch (error) {
       console.error("Failed to update circle radius:", error);
     }
@@ -392,6 +507,8 @@ const MainPage = () => {
       setLowKVP(0);
       setIsTestMode(false);
       setCalibrationFile(null);
+      setIsSECT(false);
+      // setSprMapUrl(null);
 
       window.alert("✅ Ready for a new scan!");
     } catch (error) {
@@ -405,7 +522,9 @@ const MainPage = () => {
     const currentHighImage = highImages[currentIndex];
     const currentLowImage = lowImages[currentIndex];
 
-    if (!currentHighImage || !currentLowImage) {
+    // Compare logic relies on DECT mostly, or Schneider comparison on SECT.
+    // Assuming comparison logic stays for DECT for now.
+    if (!currentHighImage || (!isSECT && !currentLowImage)) {
       console.error("No valid image pair found.");
       return;
     }
@@ -514,6 +633,7 @@ const MainPage = () => {
           setComparisonRadius={setComparisonRadius}
           handleCompare={handleCompare}
           showCompareResults={showCompareResults}
+          sprMapUrl={sprMapUrl}
         />
       );
     }
@@ -537,6 +657,7 @@ const MainPage = () => {
           setComparisonRadius={setComparisonRadius}
           handleCompare={handleCompare}
           showCompareResults={showCompareResults}
+          sprMapUrl={sprMapUrl}
         />
       );
     }
@@ -573,7 +694,10 @@ const MainPage = () => {
           handleSliceThicknessChange={handleSliceThicknessChange}
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
-          models={models}
+          // Filter models: SECT shows only Schneider, DECT shows all
+          models={
+            isSECT ? models.filter((m) => m.name === "Schneider") : models
+          }
           handleCalculate={handleCalculate}
           handleHome={handleHome}
         />

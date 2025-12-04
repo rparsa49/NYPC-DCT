@@ -3,7 +3,12 @@ import React from "react";
 import styled from "styled-components";
 
 const TestResultsTable = ({ results, selectedModel }) => {
-  if (selectedModel === "Tanaka" || selectedModel === "Saito") {
+  // Added "Schneider" to this condition
+  if (
+    selectedModel === "Tanaka" ||
+    selectedModel === "Saito" ||
+    selectedModel === "Schneider"
+  ) {
     return (
       <TableWrapper>
         <TableTitle>{selectedModel} Results</TableTitle>
@@ -58,6 +63,8 @@ const TestResultsTable = ({ results, selectedModel }) => {
           <tbody>
             {results.map((result, index) => (
               <tr key={index}>
+                {/* Note: Hunemohr data structure might be slightly different based on previous code */}
+                <TableCell>{index + 1}</TableCell>
                 <TableCell>{result.material}</TableCell>
                 <TableCell>{result.rho_e}</TableCell>
                 <TableCell>{result.z_eff}</TableCell>
@@ -70,7 +77,15 @@ const TestResultsTable = ({ results, selectedModel }) => {
     );
   }
 
-  return null;
+  // Fallback for unknown models to prevent empty screens
+  return (
+    <TableWrapper>
+      <TableTitle>{selectedModel || "Unknown Model"} Results</TableTitle>
+      <p style={{ textAlign: "center" }}>
+        No display template found for this model.
+      </p>
+    </TableWrapper>
+  );
 };
 
 export default TestResultsTable;
