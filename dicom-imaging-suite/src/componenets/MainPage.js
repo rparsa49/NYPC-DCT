@@ -167,6 +167,57 @@ const MainPage = () => {
       setResults(processedResults);
       setSelectedModel(result.model);
 
+      try {
+        const sprValues = {};
+        processedResults.forEach((row) => {
+          if (row.material && row.stopping_power !== "N/A") {
+            const val = parseFloat(row.stopping_power);
+            if (!isNaN(val)) {
+              sprValues[row.material] = val;
+            }
+          }
+        });
+
+        // Use default background if missing
+        if (sprValues.Background === undefined) {
+          sprValues.Background = 0.86;
+        }
+
+        // Use the first image from the uploaded set for the map
+        const imageUrlForMap =
+          result.high_kvp_images && result.high_kvp_images.length > 0
+            ? result.high_kvp_images[0]
+            : "";
+
+        if (imageUrlForMap) {
+          const mapResp = await fetch("http://127.0.0.1:5050/make-spr-map", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phantom: phantomType, // Use current phantom selection or default
+              which: "high",
+              image_url: imageUrlForMap,
+              spr_values: sprValues,
+              phantom_material: "Background",
+            }),
+          });
+
+          if (mapResp.ok) {
+            const mapData = await mapResp.json();
+            setSprMapUrl(
+              `http://127.0.0.1:5050${mapData.spr_map}?t=${Date.now()}`
+            );
+          } else {
+            console.warn(
+              "SPR Map generation failed with status:",
+              mapResp.status
+            );
+          }
+        }
+      } catch (mapError) {
+        console.error("Failed to generate SPR map for test results:", mapError);
+      }
+
       setIsTestResults(true);
       setIsTestMode(false);
       setIsImagesReady(false);
@@ -278,6 +329,7 @@ const MainPage = () => {
           "✅ Calibration complete! A configuration file has been downloaded.\n\n" +
             "Use this file in 'Test Mode' to analyze unknown scans."
         );
+
         return; // Stop here, do not try to render results table
       }
 
