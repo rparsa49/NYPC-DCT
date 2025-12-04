@@ -9,9 +9,10 @@ const TestResultsSection = ({
   selectedModel,
   handleBack,
   handleHome,
-  downloadResultsAsCSV
-}) => {
+  downloadResultsAsCSV,
+  sprMapUrl,
 
+}) => {
   return (
     <ResultsContainer>
       <ButtonGroup>
@@ -21,6 +22,12 @@ const TestResultsSection = ({
         </UtilityButton>
         <UtilityButton onClick={downloadResultsAsCSV}>💾</UtilityButton>
       </ButtonGroup>
+      {sprMapUrl && (
+        <SprCard>
+          <SprTitle>SPR Map</SprTitle>
+          <SprImg src={sprMapUrl} alt="SPR Map" />
+        </SprCard>
+      )}
       <TestResultsTable results={results} selectedModel={selectedModel} />
     </ResultsContainer>
   );
@@ -143,4 +150,29 @@ const MainButton = styled.button`
     transform: translateY(-3px);
     box-shadow: 0px 12px 20px rgba(255, 107, 203, 0.6);
   }
+`;
+
+const SprCard = styled.div`
+  width: 100%;
+  max-width: 720px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 12px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const SprTitle = styled.h3`
+  margin: 6px 0 12px;
+  color: #ff6bcb;
+  font-weight: 600;
+`;
+
+const SprImg = styled.img`
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
 `;
