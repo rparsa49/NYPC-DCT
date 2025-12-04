@@ -55,6 +55,11 @@ const ViewerSection = ({
             >
               <option value="head">Head</option>
               <option value="body">Body</option>
+              <option value="3d-head 0-ring">3D-Head 0-Ring</option>
+              <option value="3d-head 1-ring">3D-Head 1-Ring</option>
+              <option value="3d-head 2-ring">3D-Head 2-Ring</option>
+              <option value="3d-head 3-ring">3D-Head 3-Ring</option>
+              <option value="3d-head 4-ring">3D-Head 4-Ring</option>
             </Select>
           </SelectContainer>
           <SelectContainer>
