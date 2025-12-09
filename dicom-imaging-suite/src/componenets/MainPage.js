@@ -32,6 +32,7 @@ const MainPage = () => {
   const [isTestResults, setIsTestResults] = useState(false);
   const [sprMapUrl, setSprMapUrl] = useState(null);
   const [isSECT, setIsSECT] = useState(false);
+  const [sprMapUrls, setSprMapUrls] = useState([]);
 
   useEffect(() => {
     fetch("http://127.0.0.1:5050/get-supported-models")
@@ -99,117 +100,116 @@ const MainPage = () => {
     }
   };
 
-  const handleTestUpload = async (dicomFiles, calibrationFile) => {
-    setIsLoading(true);
-    const formData = new FormData();
+const handleTestUpload = async (dicomFiles, calibrationFile) => {
+  setIsLoading(true);
+  const formData = new FormData();
 
-    Array.from(dicomFiles).forEach((file) => {
-      formData.append("files", file, file.webkitRelativePath);
+  Array.from(dicomFiles).forEach((file) => {
+    formData.append("files", file, file.webkitRelativePath);
+  });
+  formData.append("calibration_file", calibrationFile);
+
+  try {
+    const response = await fetch("http://127.0.0.1:5050/test-calibration", {
+      method: "POST",
+      body: formData,
     });
-    formData.append("calibration_file", calibrationFile);
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    setUploadStatus("Test successful!");
+
+    const analysisResult = result.analysis_results;
+    let processedResults = [];
+
+    if (result.model === "Schneider") {
+      processedResults = Object.entries(analysisResult.materials).map(
+        ([materialName, data]) => ({
+          material: materialName,
+          rho_e: data.predicted_rho?.toFixed(3) || "N/A",
+          z_eff: data.z_eff?.toFixed(3) || "N/A",
+          stopping_power: data.predicted_spr?.toFixed(5) || "N/A",
+        })
+      );
+    } else {
+      processedResults = analysisResult.materials.map((material, index) => ({
+        material: material,
+        rho_e: analysisResult.calculated_rhos[index]?.toFixed(3) || "N/A",
+        z_eff: analysisResult.calculated_z_effs[index]?.toFixed(2) || "N/A",
+        stopping_power:
+          analysisResult.stopping_power[index]?.toFixed(5) || "N/A",
+      }));
+    }
+
+    setResults(processedResults);
+    setSelectedModel(result.model);
 
     try {
-      const response = await fetch("http://127.0.0.1:5050/test-calibration", {
-        method: "POST",
-        body: formData,
+      const sprValues = {};
+      processedResults.forEach((row) => {
+        if (row.material && row.stopping_power !== "N/A") {
+          const val = parseFloat(row.stopping_power);
+          if (!isNaN(val)) {
+            sprValues[row.material] = val;
+          }
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+      if (sprValues.Background === undefined) {
+        sprValues.Background = 0.86;
       }
 
-      const result = await response.json();
-      setUploadStatus("Test successful!");
+      const imageUrlForMap =
+        result.high_kvp_images && result.high_kvp_images.length > 0
+          ? result.high_kvp_images[0]
+          : "";
 
-      const analysisResult = result.analysis_results;
-      let processedResults = [];
-
-      // Handle Schneider (Object/Dict return) vs DECT (Array return)
-      if (result.model === "Schneider") {
-        // Schneider returns { materials: { "MatA": { ...data... } } }
-        processedResults = Object.entries(analysisResult.materials).map(
-          ([materialName, data]) => ({
-            material: materialName,
-            rho_e: data.predicted_rho?.toFixed(3) || "N/A",
-            z_eff: data.z_eff?.toFixed(3) || "N/A",
-            stopping_power: data.predicted_spr?.toFixed(5) || "N/A",
-          })
-        );
-      } else {
-        // Existing DECT models return { materials: [...], calculated_rhos: [...] }
-        processedResults = analysisResult.materials.map((material, index) => ({
-          material: material,
-          rho_e: analysisResult.calculated_rhos[index]?.toFixed(3) || "N/A",
-          z_eff: analysisResult.calculated_z_effs[index]?.toFixed(2) || "N/A",
-          stopping_power:
-            analysisResult.stopping_power[index]?.toFixed(5) || "N/A",
-        }));
-      }
-
-      setResults(processedResults);
-      setSelectedModel(result.model);
-
-      try {
-        const sprValues = {};
-        processedResults.forEach((row) => {
-          if (row.material && row.stopping_power !== "N/A") {
-            const val = parseFloat(row.stopping_power);
-            if (!isNaN(val)) {
-              sprValues[row.material] = val;
-            }
-          }
+      if (imageUrlForMap) {
+        const mapResp = await fetch("http://127.0.0.1:5050/make-spr-map", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phantom: phantomType,
+            which: "high",
+            image_url: imageUrlForMap,
+            spr_values: sprValues,
+            phantom_material: "Background",
+          }),
         });
 
-        // Use default background if missing
-        if (sprValues.Background === undefined) {
-          sprValues.Background = 0.86;
-        }
+        if (mapResp.ok) {
+          const mapData = await mapResp.json();
 
-        // Use the first image from the uploaded set for the map
-        const imageUrlForMap =
-          result.high_kvp_images && result.high_kvp_images.length > 0
-            ? result.high_kvp_images[0]
-            : "";
-
-        if (imageUrlForMap) {
-          const mapResp = await fetch("http://127.0.0.1:5050/make-spr-map", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phantom: phantomType,
-              which: "high",
-              image_url: imageUrlForMap,
-              spr_values: sprValues,
-              phantom_material: "Background",
-            }),
-          });
-
-          if (mapResp.ok) {
-            const mapData = await mapResp.json();
-            setSprMapUrl(
-              `http://127.0.0.1:5050${mapData.spr_map}?t=${Date.now()}`
+          if (mapData.spr_maps && Array.isArray(mapData.spr_maps)) {
+            const urls = mapData.spr_maps.map(
+              (path) => `http://127.0.0.1:5050${path}?t=${Date.now()}`
             );
-          } else {
-            console.warn(
-              "SPR Map generation failed with status:",
-              mapResp.status
-            );
+            setSprMapUrls(urls);
           }
+        } else {
+          console.warn(
+            "SPR Map generation failed with status:",
+            mapResp.status
+          );
         }
-      } catch (mapError) {
-        console.error("Failed to generate SPR map for test results:", mapError);
       }
-
-      setIsTestResults(true);
-      setIsTestMode(false);
-      setIsImagesReady(false);
-    } catch (error) {
-      console.error("Test failed:", error);
-      setUploadStatus("Test failed. Please try again.");
-    } finally {
-      setIsLoading(false);
+    } catch (mapError) {
+      console.error("Failed to generate SPR map for test results:", mapError);
     }
-  };
+
+    setIsTestResults(true);
+    setIsTestMode(false);
+    setIsImagesReady(false);
+  } catch (error) {
+    console.error("Test failed:", error);
+    setUploadStatus("Test failed. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const cleanNoise = async () => {
     if (isSECT) {
@@ -646,7 +646,7 @@ const MainPage = () => {
           setComparisonRadius={setComparisonRadius}
           handleCompare={handleCompare}
           showCompareResults={showCompareResults}
-          sprMapUrl={sprMapUrl}
+          sprMapUrls={sprMapUrls}
         />
       );
     }
@@ -676,7 +676,6 @@ const MainPage = () => {
     }
 
     if (isTestMode) {
-      // New check for test mode
       return (
         <TestSection
           handleTestUpload={handleTestUpload}

@@ -1,5 +1,4 @@
-// ResultsSection.js
-import React from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import TestResultsTable from "./TestResultsTable";
 import { FaHome } from "react-icons/fa";
@@ -10,9 +9,18 @@ const TestResultsSection = ({
   handleBack,
   handleHome,
   downloadResultsAsCSV,
-  sprMapUrl,
-
+  sprMapUrls,
 }) => {
+  const [currentSlice, setCurrentSlice] = useState(0);
+
+  useEffect(() => {
+    setCurrentSlice(0);
+  }, [sprMapUrls]);
+
+  const handleSliderChange = (e) => {
+    setCurrentSlice(Number(e.target.value));
+  };
+
   return (
     <ResultsContainer>
       <ButtonGroup>
@@ -22,12 +30,39 @@ const TestResultsSection = ({
         </UtilityButton>
         <UtilityButton onClick={downloadResultsAsCSV}>💾</UtilityButton>
       </ButtonGroup>
-      {sprMapUrl && (
+
+      {sprMapUrls && sprMapUrls.length > 0 && (
         <SprCard>
-          <SprTitle>SPR Map</SprTitle>
-          <SprImg src={sprMapUrl} alt="SPR Map" />
+          <SprHeader>
+            <SprTitle>SPR Map</SprTitle>
+            <SliceCounter>
+              Slice {currentSlice + 1} / {sprMapUrls.length}
+            </SliceCounter>
+          </SprHeader>
+
+          <ViewerContainer>
+            <MainImageWrapper>
+              <SprImg
+                src={sprMapUrls[currentSlice]}
+                alt={`SPR Map slice ${currentSlice + 1}`}
+              />
+            </MainImageWrapper>
+
+            {sprMapUrls.length > 1 && (
+              <SliderWrapper>
+                <VerticalSlider
+                  type="range"
+                  min="0"
+                  max={sprMapUrls.length - 1}
+                  value={currentSlice}
+                  onChange={handleSliderChange}
+                />
+              </SliderWrapper>
+            )}
+          </ViewerContainer>
         </SprCard>
       )}
+
       <TestResultsTable results={results} selectedModel={selectedModel} />
     </ResultsContainer>
   );
@@ -35,13 +70,13 @@ const TestResultsSection = ({
 
 export default TestResultsSection;
 
-// Styled components
 const ResultsContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 20px;
   margin-top: 20px;
   align-items: center;
+  width: 100%;
 `;
 
 const ButtonGroup = styled.div`
@@ -69,110 +104,83 @@ const UtilityButton = styled.button`
   }
 `;
 
-const ToggleCompareButton = styled.button`
-  margin-top: 20px;
-  background: #ffb347;
-  color: #1f2a48;
-  padding: 10px 20px;
-  font-size: 15px;
-  border: none;
-  border-radius: 25px;
-  cursor: pointer;
-  transition: background 0.2s;
-  &:hover {
-    background: #ffa500;
-  }
-`;
-
-const AnimatedCompareMenu = styled.div`
-  margin-top: 20px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid #ff6bcb;
-  border-radius: 15px;
-  animation: fadeIn 0.3s ease-in-out;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-`;
-
-const SelectContainer = styled.div`
-  margin: 20px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: #ff6bcb;
-`;
-
-const Select = styled.select`
-  padding: 5px;
-  border-radius: 5px;
-  border: 1px solid #ff6bcb;
-  color: #ff6bcb;
-  background-color: #fff;
-  font-size: 16px;
-`;
-
-const SliderContainer = styled.div`
-  margin: 20px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: #ff6bcb;
-`;
-
-const RadiusSlider = styled.input`
-  width: 200px;
-  margin-top: 10px;
-`;
-
-const MainButton = styled.button`
-  background: #ff6bcb;
-  color: white;
-  padding: 15px 25px;
-  font-size: 16px;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0px 8px 15px rgba(255, 107, 203, 0.4);
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0px 12px 20px rgba(255, 107, 203, 0.6);
-  }
-`;
-
 const SprCard = styled.div`
   width: 100%;
-  max-width: 720px;
+  max-width: 600px; 
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
-  padding: 12px 12px 16px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
 `;
 
+const SprHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 0 10px;
+`;
+
 const SprTitle = styled.h3`
-  margin: 6px 0 12px;
+  margin: 0;
   color: #ff6bcb;
   font-weight: 600;
 `;
 
-const SprImg = styled.img`
+const SliceCounter = styled.span`
+  color: #e0eafc;
+  font-size: 14px;
+  opacity: 0.8;
+`;
+
+const ViewerContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 15px;
   width: 100%;
-  height: auto;
+  height: 400px;
+`;
+
+const MainImageWrapper = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 12px;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+`;
+
+const SprImg = styled.img`
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+`;
+
+const SliderWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 15px;
+  padding: 10px 0;
+`;
+
+const VerticalSlider = styled.input`
+  -webkit-appearance: slider-vertical;
+  width: 8px;
+  height: 100%;
+  outline: none;
+  cursor: pointer;
+
+  transform: rotate(180deg);
+
+  accent-color: #ff6bcb;
 `;
