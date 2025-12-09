@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import LoadingSpinner from "./LoadingSpinner";
-
-// New modular components
 import UploadSection from "./UploadSection";
 import ViewerSection from "./ViewerSection";
 import ResultsSection from "./ResultsSection";
@@ -19,15 +17,12 @@ const MainPage = () => {
   const [showCompareResults, setShowCompareResults] = useState(false);
   const [highImages, setHighImages] = useState([]);
   const [lowImages, setLowImages] = useState([]);
-  const [sliceThickness, setSliceThickness] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [circleRadius, setCircleRadius] = useState(10);
   const [phantomType, setPhantomType] = useState("head");
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [results, setResults] = useState([]);
-  const [highKVP, setHighKVP] = useState(0);
-  const [lowKVP, setLowKVP] = useState(0);
   const [comparisonResults, setComparisonResults] = useState([]);
   const [comparisonModel, setComparisonModel] = useState("");
   const [comparisonRadius, setComparisonRadius] = useState(circleRadius);
@@ -36,11 +31,7 @@ const MainPage = () => {
   const [calibrationFile, setCalibrationFile] = useState(null);
   const [isTestResults, setIsTestResults] = useState(false);
   const [sprMapUrl, setSprMapUrl] = useState(null);
-  // NEW: State to track if scan is Single Energy
   const [isSECT, setIsSECT] = useState(false);
-
-  const toSection = (p) =>
-    p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : "Head";
 
   useEffect(() => {
     fetch("http://127.0.0.1:5050/get-supported-models")
@@ -91,21 +82,12 @@ const MainPage = () => {
       setLowImages(newLowImages || []); // Ensure it's at least an empty array
       setIsSECT(isSingleEnergy);
 
-      // --- Smart Model Selection ---
       if (isSingleEnergy) {
         // Force selection to Schneider for SECT
         const schneider = models.find((m) => m.name === "Schneider");
         if (schneider) {
           setSelectedModel("Schneider");
-        } else {
-          // Fallback if model list hasn't loaded yet or name mismatch
-          setSelectedModel("Schneider");
-        }
-      } else {
-        // For DECT, default to first available if current selection is invalid
-        if (models.length > 0 && selectedModel === "") {
-          setSelectedModel(models[0].name);
-        }
+        } 
       }
 
       setIsImagesReady(true);
@@ -149,7 +131,7 @@ const MainPage = () => {
           ([materialName, data]) => ({
             material: materialName,
             rho_e: data.predicted_rho?.toFixed(3) || "N/A",
-            z_eff: "N/A", // Schneider doesn't calculate Z_eff directly
+            z_eff: data.z_eff?.toFixed(3) || "N/A",
             stopping_power: data.predicted_spr?.toFixed(5) || "N/A",
           })
         );
@@ -194,7 +176,7 @@ const MainPage = () => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              phantom: phantomType, // Use current phantom selection or default
+              phantom: phantomType,
               which: "high",
               image_url: imageUrlForMap,
               spr_values: sprValues,
@@ -295,9 +277,6 @@ const MainPage = () => {
           radius: circleRadius,
           phantom: phantomType,
           model: selectedModel,
-          highKVP: highKVP,
-          lowKVP: lowKVP,
-          sliceThickness: sliceThickness,
           high_kvp_image: currentHighImage,
           low_kvp_image: currentLowImage,
         }),
@@ -554,9 +533,6 @@ const MainPage = () => {
       setCircleRadius(10);
       setPhantomType("head");
       setSelectedModel(models[0]?.name || "");
-      setSliceThickness(0);
-      setHighKVP(0);
-      setLowKVP(0);
       setIsTestMode(false);
       setCalibrationFile(null);
       setIsSECT(false);
@@ -589,9 +565,6 @@ const MainPage = () => {
           radius: comparisonRadius,
           phantom: phantomType,
           model: comparisonModel,
-          highKVP: highKVP,
-          lowKVP: lowKVP,
-          sliceThickness: sliceThickness,
           high_kvp_image: currentHighImage,
           low_kvp_image: currentLowImage,
         }),
@@ -613,18 +586,6 @@ const MainPage = () => {
       console.error("Comparison analysis failed:", err);
       alert("Comparison run failed.");
     }
-  };
-
-  const handleHighKVPChange = async (event) => {
-    setHighKVP(event.target.value);
-  };
-
-  const handleLowKVPChange = async (event) => {
-    setLowKVP(event.target.value);
-  };
-
-  const handleSliceThicknessChange = async (event) => {
-    setSliceThickness(event.target.value);
   };
 
   const downloadResultsAsCSV = () => {
@@ -738,15 +699,8 @@ const MainPage = () => {
           setPhantomType={setPhantomType}
           circleRadius={circleRadius}
           handleRadiusChange={handleRadiusChange}
-          highKVP={highKVP}
-          handleHighKVPChange={handleHighKVPChange}
-          lowKVP={lowKVP}
-          handleLowKVPChange={handleLowKVPChange}
-          sliceThickness={sliceThickness}
-          handleSliceThicknessChange={handleSliceThicknessChange}
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
-          // Filter models: SECT shows only Schneider, DECT shows all
           models={
             isSECT ? models.filter((m) => m.name === "Schneider") : models
           }
@@ -762,7 +716,7 @@ const MainPage = () => {
         uploadStatus={uploadStatus}
         setShowHelp={setShowHelp}
         showHelp={showHelp}
-        setIsTestMode={setIsTestMode} // Pass the state setter
+        setIsTestMode={setIsTestMode}
       />
     );
   };

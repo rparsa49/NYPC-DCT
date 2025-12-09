@@ -15,12 +15,6 @@ const ViewerSection = ({
   setPhantomType,
   circleRadius,
   handleRadiusChange,
-  highKVP,
-  handleHighKVPChange,
-  lowKVP,
-  handleLowKVPChange,
-  sliceThickness,
-  handleSliceThicknessChange,
   selectedModel,
   setSelectedModel,
   models,
@@ -33,7 +27,7 @@ const ViewerSection = ({
         <UtilityButton onClick={handleHome}>
           <FaHome />
         </UtilityButton>
-        <h1>DECT Scan Viewer</h1>
+        <h1>Scan Visualizer</h1>
       </Header>
       <ImageViewer
         highImages={highImages}
@@ -48,7 +42,7 @@ const ViewerSection = ({
       <ControlsContainer>
         <ControlGroup>
           <SelectContainer>
-            <label>Phantom Type:</label>
+            <label>Phantom Size:</label>
             <Select
               value={phantomType}
               onChange={(e) => setPhantomType(e.target.value)}
@@ -63,7 +57,7 @@ const ViewerSection = ({
             </Select>
           </SelectContainer>
           <SelectContainer>
-            <label>Select Model:</label>
+            <label>Model Selection:</label>
             <Select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
@@ -78,46 +72,13 @@ const ViewerSection = ({
         </ControlGroup>
         <ControlGroup>
           <SliderContainer>
-            <label>Circle Radius: {circleRadius}px</label>
+            <label>Insert Radius: {circleRadius}px</label>
             <RadiusSlider
               type="range"
               min="1"
               max="100"
               value={circleRadius}
               onChange={handleRadiusChange}
-            />
-          </SliderContainer>
-          <SliderContainer>
-            <label>High KVP: {highKVP} KVP</label>
-            <RadiusSlider
-              type="range"
-              min="10"
-              max="200"
-              step={10}
-              value={highKVP}
-              onChange={handleHighKVPChange}
-            />
-          </SliderContainer>
-          <SliderContainer>
-            <label>Low KVP: {lowKVP} KVP</label>
-            <RadiusSlider
-              type="range"
-              min="10"
-              max="200"
-              step={10}
-              value={lowKVP}
-              onChange={handleLowKVPChange}
-            />
-          </SliderContainer>
-          <SliderContainer>
-            <label>Slice Thickness : {sliceThickness} mm</label>
-            <RadiusSlider
-              type="range"
-              min="0"
-              max="20"
-              step={0.5}
-              value={sliceThickness}
-              onChange={handleSliceThicknessChange}
             />
           </SliderContainer>
         </ControlGroup>
@@ -133,7 +94,6 @@ const ViewerSection = ({
 
 export default ViewerSection;
 
-// Styled components
 const Header = styled.div`
   margin-bottom: 20px;
   position: relative;
