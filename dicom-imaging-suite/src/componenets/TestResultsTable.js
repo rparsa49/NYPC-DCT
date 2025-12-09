@@ -3,10 +3,10 @@ import React from "react";
 import styled from "styled-components";
 
 const TestResultsTable = ({ results, selectedModel }) => {
-  // Added "Schneider" to this condition
   if (
     selectedModel === "Tanaka" ||
     selectedModel === "Saito" ||
+    selectedModel === "Hunemohr" ||
     selectedModel === "Schneider"
   ) {
     return (
@@ -29,41 +29,6 @@ const TestResultsTable = ({ results, selectedModel }) => {
           <tbody>
             {results.map((result, index) => (
               <tr key={index}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell>{result.material}</TableCell>
-                <TableCell>{result.rho_e}</TableCell>
-                <TableCell>{result.z_eff}</TableCell>
-                <TableCell>{result.stopping_power}</TableCell>
-              </tr>
-            ))}
-          </tbody>
-        </StyledTable>
-      </TableWrapper>
-    );
-  }
-
-  if (selectedModel === "Hunemohr") {
-    return (
-      <TableWrapper>
-        <TableTitle>{selectedModel} Results</TableTitle>
-        <StyledTable>
-          <thead>
-            <tr>
-              <TableHeader>Insert #</TableHeader>
-              <TableHeader>Material</TableHeader>
-              <TableHeader>
-                ρ<sub>e</sub>
-              </TableHeader>
-              <TableHeader>
-                Z<sub>eff</sub>
-              </TableHeader>
-              <TableHeader>Stopping Power Ratio</TableHeader>
-            </tr>
-          </thead>
-          <tbody>
-            {results.map((result, index) => (
-              <tr key={index}>
-                {/* Note: Hunemohr data structure might be slightly different based on previous code */}
                 <TableCell>{index + 1}</TableCell>
                 <TableCell>{result.material}</TableCell>
                 <TableCell>{result.rho_e}</TableCell>
