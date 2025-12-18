@@ -106,6 +106,7 @@ const ResultsTable = ({ results, selectedModel }) => {
           <tbody>
             {results.map((result, index) => (
               <tr key={index}>
+                <TableCell>{index + 1}</TableCell>
                 <TableCell>{result.material}</TableCell>
                 <TableCell>{result.rho_e}</TableCell>
                 <TableCell>{result.z_eff}</TableCell>
