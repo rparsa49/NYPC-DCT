@@ -55,7 +55,7 @@ npm run
 3. A webpage should open up and show the landing page of the application. You are now ready to use it!
 
 ## Using the Application
-1. The application accepts a folder in the following structure:
+1. If you want to use DECT scans, please follow the following structure:
 
 - folder_name
     - scans_of_high_energy
@@ -66,5 +66,14 @@ npm run
         - scan1.dcm
         - scan2.dcm
         ...
+
+    If you want to use SECT scans, follow the following structure:
+
+- folder_name
+    - scans
+        - scan1.dcm
+        - scan2.dcm
+        ...
+          
 2. It will take a moment to get processed before it opens the analysis page.
 3. Happy using!
